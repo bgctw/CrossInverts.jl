@@ -1,0 +1,7 @@
+name = "CrossInverts"
+uuid = "2efadbd5-da09-4a26-a84a-7f8cb3b3c09d"
+authors = ["Thomas Wutzler <twutz@bgc-jena.mpg.de> and contributors"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1"
