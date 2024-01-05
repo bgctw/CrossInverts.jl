@@ -1,7 +1,7 @@
 tmpf = () -> begin
-    push!(LOAD_PATH, expanduser("~/julia/devtools/")) # access local pack
-    push!(LOAD_PATH, expanduser("~/julia/scimltools/")) # access local pack
-    push!(LOAD_PATH, joinpath(pwd(), "test/")) # access local pack
+    pop!(LOAD_PATH)
+    push!(LOAD_PATH, joinpath(pwd(), "test/"))
+    push!(LOAD_PATH, expanduser("~/julia/devtools_$(VERSION.major).$(VERSION.minor)"))
 end
 
 using Test, SafeTestsets
