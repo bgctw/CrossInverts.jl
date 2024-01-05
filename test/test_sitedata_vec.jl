@@ -25,7 +25,7 @@ end;
     @test all((:mv₊x, :mv₊p, :mv₊τ, :mv₊i) .∈ Ref(priors_df.par))
     @test eltype(priors_df.dist) <: Distribution
     #
-    _mean = (; zip(priors_df.par, mean.(priors_df.dist))...)
+    _mean = CA.ComponentVector(; zip(priors_df.par, mean.(priors_df.dist))...)
     popt = CA.ComponentVector(state = _mean[(:mv₊x,)], par = _mean[(:mv₊τ, :mv₊i)])
     priors = get_priors(keys(popt.state), priors_df)
     @test keys(priors) == keys(popt.state)
