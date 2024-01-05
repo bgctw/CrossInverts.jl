@@ -1,28 +1,28 @@
 using Test
-using SesamFitSPP
-using SesamFitSPP: SesamFitSPP as CP
+using CrossInverts
+using CrossInverts: CrossInverts as CP
 using ModelingToolkit, OrdinaryDiffEq
 using DataFrames
 using ComponentArrays: ComponentArrays as CA
 
-#include("test/samplesystem.jl")
-include("samplesystem.jl")
+# df_site_u0_p = DataFrames.DataFrame([
+#         (:siteA,
+#             CA.ComponentVector(d₊x = [2.1,2.2]),
+#             CA.ComponentVector(d₊p1 = 10, d₊p2 = 5.2, d₊τ = 0.1)),
+#         (:siteB,
+#             CA.ComponentVector(d₊x = 1.8),
+#             CA.ComponentVector(d₊p1 = 11, d₊p2 = 4.8, d₊τ = 0.1)),
+#     ], [:site, :u0, :p])
 
-df_site_u0_p = DataFrames.DataFrame([
-        (:siteA,
-            CA.ComponentVector(d₊x = 2.2),
-            CA.ComponentVector(d₊p1 = 10, d₊p2 = 5.2, d₊τ = 0.1)),
-        (:siteB,
-            CA.ComponentVector(d₊x = 1.8),
-            CA.ComponentVector(d₊p1 = 11, d₊p2 = 4.8, d₊τ = 0.1)),
-    ], [:site, :u0, :p])
-
-u0 = df_site_u0_p.u0[1]
-p = df_site_u0_p.p[1]
-@named d = samplesystem()
+# u0 = df_site_u0_p.u0[1]
+# p = df_site_u0_p.p[1]
+@named d = CP.samplesystem_vec()
 @named system = embed_system(d)
 
-popt = CA.ComponentVector(d₊x = 3.0, d₊τ = 0.5)
+popt = CA.ComponentVector(d₊x = [3.1, 3.2], d₊τ = 0.5)
+
+u0 = CA.ComponentVector(d₊x = [3.11, 3.21])
+p = CA.ComponentVector(d₊τ = 0.51)
 
 tools = setup_mtk_tools(system, u0, p, keys(popt));
 probo = remake(tools.problem, popt, tools.pset)
