@@ -118,14 +118,14 @@ Provide a DataFrame with columns :par, :dist
 function get_priors_df end
 
 """
-    df_from_parmsModeUpperRows(parmsModeUpperRows)
+    df_from_paramsModeUpperRows(paramsModeUpperRows)
 
 Convert Tuple-Rows of (:par, :dType, :med, :upper) to DataFrame.
 And Fit distribution.
 """
-function df_from_parmsModeUpperRows(parmsModeUpperRows)
+function df_from_paramsModeUpperRows(paramsModeUpperRows)
     cols = (:par, :dType, :med, :upper)
-    df_dist = rename!(DataFrame(Tables.columntable(parmsModeUpperRows)), collect(cols))
+    df_dist = rename!(DataFrame(Tables.columntable(paramsModeUpperRows)), collect(cols))
     f1v = (par, dType, med, upper) -> begin
         dist = dist0 = fit(dType, @qp_m(med), @qp_uu(upper))
     end

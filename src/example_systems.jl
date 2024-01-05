@@ -101,14 +101,14 @@ end
 
 function get_priors_df(::Val{:CrossInverts_samplesystem1}, site, scenario)
     #using DataFrames, Tables, DistributionFits
-    parmsModeUpperRows = [
+    paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
         (:m1₊x1, LogNormal, 1.0, 2.0),
         (:m1₊x2, LogNormal, 1.0, 2.0),
         (:m1₊i, LogNormal, 1.0, 6.0),
         (:m1₊τ, LogNormal, 1.0, 5.0),
     ]
-    df_scalars = df_from_parmsModeUpperRows(parmsModeUpperRows)
+    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
     dist_p = Product(fill(dist_p0, 3))
     df_p = DataFrame(par = :m1₊p,
@@ -206,18 +206,18 @@ end
 
 function get_priors_df(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
     #using DataFrames, Tables, DistributionFits, Chain
-    parmsModeUpperRows = [
+    paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
         (:mv₊i, LogNormal, 1.0, 6.0),
         (:mv₊τ, LogNormal, 1.0, 5.0),
     ]
-    df_scalars = df_from_parmsModeUpperRows(parmsModeUpperRows)
+    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
     # TODO par, index, ....
-    parmsModeUpperRows_multivariate = [
+    paramsModeUpperRows_multivariate = [
         (:mv₊x_1, LogNormal, 1.0, 2.0),
         (:mv₊x_2, LogNormal, 1.0, 2.0),
     ]
-    df_mv = df_from_parmsModeUpperRows(parmsModeUpperRows_multivariate)
+    df_mv = df_from_paramsModeUpperRows(paramsModeUpperRows_multivariate)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
     dist_p = Product(fill(dist_p0, 3))
     df_p = DataFrame(par = :mv₊p,

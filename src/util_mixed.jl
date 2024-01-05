@@ -4,11 +4,11 @@
     setup_mtk_tools(system, u0, p, popt_names, subsystems; 
         tspan=(0,100), problemupdater=NullProblemUpdater)
 
-Setup a collection of common tools to work with a ModelingToolkit ODESystmes.
+Setup a collection of common tools to work with a ModelingToolkit ODESystems.
 
 # Arguments
 - system: ODESystem to work with
-- u0: ComponentVecotr of initial states
+- u0: ComponentVector of initial states
 - p: ComponentVector of parameters
 - popt_names: keys in u0 or p to be updated from a parameter vector
 - subsystems: tuple of ODESystems that hold the Nums (see embed_system)
@@ -25,7 +25,7 @@ NamedTuple with entries
 When constructing an ODEProblem from an ODESystem, the order of entries
 in problem.u0 and problem.p are undefined. 
 Hence, one needs pset, u0_map, and p_map to update specific parts of the problem.
-E.g. update the initial state of the problem by `remake(prob, u0=myu0[u_map])`.
+E.g. update the initial state of the problem by `remake(prob, u0=my_u0[u_map])`.
 """
 function setup_mtk_tools(system, u0, p, popt_names;
         tspan = (0, 100), problemupdater = NullProblemUpdater())
@@ -43,7 +43,7 @@ end
 
 Setup the ProblemParSetters for given system and parameter names.
 
-Only the entries in keys_opt_fixed and keys_opt_random that are actually occuring
+Only the entries in keys_opt_fixed and keys_opt_random that are actually occurring
 in popt_names are set.
 The indiv parameters are the difference set between popt_names and the others.
 
