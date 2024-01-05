@@ -1,5 +1,11 @@
 [deps]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
+DistributionFits = "45214091-1ed4-4409-9bcf-fdb48a05e921"
+Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+MTKHelpers = "2725b469-bb7f-4d1a-ba58-ced332a70bc7"
+ModelingToolkit = "961ee093-0014-501f-94e3-6117800e7a78"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
