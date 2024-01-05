@@ -43,7 +43,7 @@ function sample_slc_cross(df_site_u0_p, targetlim, scenario;
                      Turing.sample(tmodel, Turing.NUTS(n_burnin, 0.65, init_ϵ = 1e-2),
         Turing.MCMCThreads(),
         n_sample, nthreads, init_params = repeat([collect(popt0)], nthreads))
-    # rename columns to symobls of optimized parameters and sort into sections
+    # rename columns to symbols of optimized parameters and sort into sections
     parkeys_dict = get_parameter_keys(psets; n_indiv = nrow(df))
     #Maybe: think of actual dictionary for the case the order in chn is not stable
     paropt_sections = (:fixed, :random, :random_σstar, :indiv, :indiv_random)
@@ -169,7 +169,7 @@ end
     sim_sols_probs(fixed, random, indiv, indiv_random; pset_u0, pset_p, u0, p)
 
 Update and simulate system (given with tools to gen_sim_sols_probs) by 
-- first update given u0, and p using ProbelmParSetter pset_u0 and pset_p
+- first update given u0, and p using ProblemParSetter pset_u0 and pset_p
 - for each individual i
   - update fixed parameters: fixed 
   - update random parameters: random .* indiv_random[:,i]
@@ -183,7 +183,7 @@ function gen_sim_sols_probs(; tools, psets, solver = solver)
         !(log.level == Logging.Warn && log.group == :integrator_interface)
     end
     n_indiv = length(tools)
-    # see help on MTKHelpers.ODEProbemParSetterConcrete
+    # see help on MTKHelpers.ODEProblemParSetterConcrete
     fbarrier = (psets = map(get_concrete, psets),
     problemupdater = get_concrete(first(tools).problemupdater)) -> let tools = tools,
         psets = psets, problemupdater = problemupdater,

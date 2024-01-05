@@ -15,7 +15,7 @@ using ComponentArrays: ComponentArrays as CA
     prob = ODEProblem(sys, st, (0.0, 10.0), p_new)
     @test prob.p == [3.0, 0.1, 2.1, 2.2, 2.3]
     sol = solve(prob, Tsit5())
-    # first solution state equals the second entry in the mapping of initial state
+    # first solution statevector equals the Pair.second entry in the mapping of initial state
     @test first(sol[m2.x]) == last.(st)
     #sol[m2.x[1]]
     #plot(sol, vars=[m2.x,m2.RHS])    
@@ -26,4 +26,3 @@ using ComponentArrays: ComponentArrays as CA
     prob = ODEProblem(sys, st, (0.0, 10.0), [_dict_nums[:m2₊τ] => 3.0])
     @test prob.u0 == [10.1, 10.2]
 end;
-

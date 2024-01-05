@@ -101,16 +101,140 @@ end
 
 function get_priors_df(::Val{:CrossInverts_samplesystem1}, site, scenario)
     #using DataFrames, Tables, DistributionFits
-    parmsModeUpperRows = [
+    paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
-        (:m1₊x1, LogNormal, 1. , 2.),
-        (:m1₊x2, LogNormal, 1. , 2.),
-        (:m1₊i, LogNormal, 1. , 6.),
-        (:m1₊τ, LogNormal, 1. , 5.),
+        (:m1₊x1, LogNormal, 1.0, 2.0),
+        (:m1₊x2, LogNormal, 1.0, 2.0),
+        (:m1₊i, LogNormal, 1.0, 6.0),
+        (:m1₊τ, LogNormal, 1.0, 5.0),
     ]
-    df_scalars = df_from_parmsModeUpperRows(parmsModeUpperRows)
+    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
     dist_p = Product(fill(dist_p0, 3))
-    df_p = DataFrame(par = :m1₊p, dType=Product, med=missing, upper=missing, dist = dist_p)
+    df_p = DataFrame(par = :m1₊p,
+        dType = Product,
+        med = missing,
+        upper = missing,
+        dist = dist_p)
     vcat(df_scalars, df_p)
 end
+
+gen_site_data_vec = () -> begin
+    #using DistributionFits, StableRNGs
+    @named mv = CP.samplesystem_vec()
+    @named sys = embed_system(mv)
+    _dict_nums = get_system_symbol_dict(sys)
+    t = [0.2, 0.4, 1.0, 2.0]
+    p_sites = CA.ComponentVector(A = (mv₊x = [1.1, 2.1], mv₊i = 4),
+        B = (mv₊x = [1.2, 2.2], mv₊i = 0.2))
+    site = first(keys(p_sites))
+    d_noise = Dict(:mv₊dec2 => fit(LogNormal, 1, Σstar(1.1)),
+        :mv₊x => Product([fit(LogNormal, 1, Σstar(1.1)),
+            fit(LogNormal, 1, Σstar(1.1))]))
+    rng = StableRNG(123)
+    obs_tuple = map(keys(p_sites)) do site
+        st = Dict(Symbolics.scalarize(mv.x .=> p_sites[site].mv₊x))
+        p_new = Dict(mv.i .=> p_sites[site].mv₊i)
+        prob = ODEProblem(sys, st, (0.0, 2.0), p_new)
+        sol = solve(prob, Tsit5(), saveat = t)
+        #sol[[mv.x[1], mv.dec2]]
+        #sol[_dict_nums[:mv₊dec2]]
+        streams = (:mv₊x, :mv₊dec2)
+        #stream = last(streams) #stream = first(streams)
+        tmp = map(streams) do stream
+            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
+            noise = rand(rng, d_noise[stream], length(obs_true))
+            obs = length(size(noise)) == 1 ?
+                  obs = obs_true .+ noise :
+                  obs = obs_true .+ eachcol(noise)
+            (; t, obs, obs_true)
+        end
+        (; zip(streams, tmp)...)
+    end
+    res = (; zip(keys(p_sites), obs_tuple)...)
+    #clipboard(res) # not on slurm
+    res  # copy from terminal and paste into get_sitedata
+end
+
+function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
+    data = (A = (mv₊x = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    [2.5453299001305467, 3.384460308262885],
+                    [2.746948743128864, 3.4835588561848265],
+                    [3.2254856047045917, 3.903390612822624],
+                    [3.266940736476312, 3.93427603779292],
+                ],
+                obs_true = [
+                    [1.5618233077483297, 2.323664986314844],
+                    [1.86384268769495, 2.496122233182189],
+                    [2.238921809653305, 2.810681108554734],
+                    [2.333112722731517, 3.0043628563264932],
+                ]),
+            mv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    3.92856938742506, 4.1190566928615,
+                    4.558893503141354, 4.769187417431323,
+                ],
+                obs_true = [
+                    3.020764482209297, 3.2449589031368458,
+                    3.653885441121154, 3.905671713224441,
+                ])),
+        B = (mv₊x = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    [1.8780444827225167, 2.8219932941025663],
+                    [2.068420236029813, 2.5336002971521934],
+                    [1.6869699748371052, 1.7602460722708764],
+                    [1.4780942191074935, 1.2543547914839175],
+                ],
+                obs_true = [
+                    [0.9994470193335424, 1.7315361907350357],
+                    [0.8587653931138475, 1.3703262085493344],
+                    [0.6318570996015761, 0.7114868532943917],
+                    [0.5132149571227039, 0.305823617777594],
+                ]),
+            mv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    3.3506468414438086, 2.685921077040386,
+                    1.869960763222208, 1.4577056889312732,
+                ],
+                obs_true = [
+                    2.2509970479555466, 1.7814240711141347,
+                    0.9249329092827092, 0.39757070311087217,
+                ])))
+    data[site]
+end
+
+function get_priors_df(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
+    #using DataFrames, Tables, DistributionFits, Chain
+    paramsModeUpperRows = [
+        # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
+        (:mv₊i, LogNormal, 1.0, 6.0),
+        (:mv₊τ, LogNormal, 1.0, 5.0),
+    ]
+    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
+    # TODO par, index, ....
+    paramsModeUpperRows_multivariate = [
+        (:mv₊x_1, LogNormal, 1.0, 2.0),
+        (:mv₊x_2, LogNormal, 1.0, 2.0),
+    ]
+    df_mv = df_from_paramsModeUpperRows(paramsModeUpperRows_multivariate)
+    dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
+    dist_p = Product(fill(dist_p0, 3))
+    df_p = DataFrame(par = :mv₊p,
+        dType = Product,
+        med = missing,
+        upper = missing,
+        dist = dist_p)
+    dist_x = @chain df_mv begin
+        filter(:par => in((:mv₊x_1, :mv₊x_2)), _)
+        _.dist
+        Product()
+    end
+    df_x = DataFrame(par = :mv₊x,
+        dType = Product,
+        med = missing,
+        upper = missing,
+        dist = dist_x)
+    vcat(df_scalars, df_p, df_x)
+end
+

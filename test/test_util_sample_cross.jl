@@ -1,5 +1,5 @@
-using SesamFitSPP
-using SesamFitSPP: SesamFitSPP as CP
+using CrossInverts
+using CrossInverts: CrossInverts as CP
 using ComponentArrays: ComponentArrays as CA
 using Distributions
 using MTKHelpers

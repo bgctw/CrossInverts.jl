@@ -43,11 +43,7 @@
 # end
 
 """
-Variant  of setup_tools_scenario where u0 and p are known,
-
-The order of components in u0 and p may habe changed in system since
-states and parameters have been stored.
-Hence, update a problem's u0 by `remake(prob, u0=myu0[u_map])`.
+TODO describe
 """
 function setup_tools_scenario(site, scenario, popt;
         system,
@@ -71,32 +67,32 @@ function setup_tools_scenario(site, scenario, popt;
     #
     pset = ODEProblemParSetter(system, popt)
     #
-    u_map = get_u_map(keys(u0), pset)
-    p_map = get_p_map(keys(p), pset)
+    # u_map = get_u_map(keys(u0), pset)
+    # p_map = get_p_map(keys(p), pset)
     #
     problemupdater = NullProblemUpdater()
     #
     priors_tup = map(keys(popt)) do k
         get_priors(keys(popt[k]), priors_df)
     end
-    priors = ComponentVector(; zip(keys(popt),priors_tup)...)
+    priors = ComponentVector(; zip(keys(popt), priors_tup)...)
     #
-    (; pset, u_map, p_map, problemupdater, priors, problem, sitedata)
+    (; pset, problemupdater, priors, problem, sitedata)
 end
 
 """
 Take a ComponentArray of possibly multivariate distributions
 and return a new ComponentArray of means of each distribution.
 """
-meandist2componentarray = function(priors)
+meandist2componentarray = function (priors)
     # need to first create several ComponentVectors and then reduce
     # otherwise map on mixing Scalars and Vectors yields eltype any
     @chain priors begin
         map(keys(_)) do k
-          ComponentVector(NamedTuple{(k,)}(Ref(mean(_[k]))))
+            ComponentVector(NamedTuple{(k,)}(Ref(mean(_[k]))))
         end
-        reduce(vcat, _)  
-      end
+        reduce(vcat, _)
+    end
 end
 
 """
@@ -122,18 +118,18 @@ Provide a DataFrame with columns :par, :dist
 function get_priors_df end
 
 """
-    df_from_parmsModeUpperRows(parmsModeUpperRows)
+    df_from_paramsModeUpperRows(paramsModeUpperRows)
 
 Convert Tuple-Rows of (:par, :dType, :med, :upper) to DataFrame.
 And Fit distribution.
 """
-function df_from_parmsModeUpperRows(parmsModeUpperRows)
+function df_from_paramsModeUpperRows(paramsModeUpperRows)
     cols = (:par, :dType, :med, :upper)
-    df_dist = rename!(DataFrame(Tables.columntable(parmsModeUpperRows)), collect(cols))
+    df_dist = rename!(DataFrame(Tables.columntable(paramsModeUpperRows)), collect(cols))
     f1v = (par, dType, med, upper) -> begin
         dist = dist0 = fit(dType, @qp_m(med), @qp_uu(upper))
     end
-    DataFrames.transform!(df_dist, Cols(:par, :dType,:med,:upper) => ByRow(f1v) => :dist)
+    DataFrames.transform!(df_dist, Cols(:par, :dType, :med, :upper) => ByRow(f1v) => :dist)
     df_dist
 end
 
@@ -145,9 +141,7 @@ Extract the ComponentVector(pars -> Distribution) from priors_df with columns :p
 function get_priors(pars, priors_df::DataFrame)
     @chain priors_df begin
         filter(:par => ∈(pars), _)  # only those rows for pars
-        ComponentVector(; zip(_.par, _.dist)...)   
+        ComponentVector(; zip(_.par, _.dist)...)
         getindex(_, pars)           # reorder 
     end
 end
-
-
