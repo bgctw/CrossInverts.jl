@@ -239,7 +239,8 @@ function gen_model_cross(;
                 indiv_random;
                 saveat = first(tools).problem.tspan[end])
             for i_indiv in 1:n_indiv
-                (; sol, problem_opt) = res_sim[i_indiv]
+                # not in 1.6 (; sol, problem_opt) = res_sim[i_indiv]
+                (sol, problem_opt) = res_sim[i_indiv]
                 #!is_dual && @show popt, sol.retcode
                 if !SciMLBase.successful_retcode(sol.retcode)
                     Turing.@addlogprob! -Inf
