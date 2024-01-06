@@ -311,12 +311,12 @@ function get_parameter_keys(psets; n_indiv)
         :random_σstar => [Symbol("σstar_" * string(pname))
                           for pname in symbols_paropt(psets.random)],
         :indiv => [Symbol("s" * string(x[2]) * "_" * string(x[1]))
-                   for x in IterTools.product(symbols_paropt(psets.indiv), 1:n_indiv)],
+                   for x in IterTools.product_distribution(symbols_paropt(psets.indiv), 1:n_indiv)],
         :indiv_random => [Symbol("r" * string(x[2]) * "_" * string(x[1]))
-                          for x in IterTools.product(symbols_paropt(psets.random),
+                          for x in IterTools.product_distribution(symbols_paropt(psets.random),
             1:n_indiv)],
         :u0 => [Symbol("u0" * string(x[2]) * "_" * string(x[1]))
-                for x in IterTools.product(symbols_state(psets.fixed), 1:n_indiv)])
+                for x in IterTools.product_distribution(symbols_state(psets.fixed), 1:n_indiv)])
     return parkeys_dict
 end
 
