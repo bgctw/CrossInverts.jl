@@ -50,7 +50,8 @@ function setup_tools_scenario(site, scenario, popt;
         sitedata = get_sitedata(Val(scenario.system), site, scenario),
         tspan = (0, maximum(map(stream -> maximum(stream.t), sitedata))),
         u0 = nothing,
-        p = nothing,)
+        p = nothing,
+        )
     sys_num_dict = get_system_symbol_dict(system)
     priors_df = get_priors_df(Val(scenario.system), site, scenario)
     # default u0 and p from expected value of priors
@@ -72,10 +73,9 @@ function setup_tools_scenario(site, scenario, popt;
     #
     problemupdater = NullProblemUpdater()
     #
-    priors_tup = map(keys(popt)) do k
-        get_priors(keys(popt[k]), priors_df)
-    end
-    priors = ComponentVector(; zip(keys(popt), priors_tup)...)
+    popt_l = label_paropt(pset, popt) # axis with split state and par
+    popt_flat = flatten1(popt_l)
+    priors = get_priors(keys(popt_flat), priors_df)
     #
     (; pset, problemupdater, priors, problem, sitedata)
 end
