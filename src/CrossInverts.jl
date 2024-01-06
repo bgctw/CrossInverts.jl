@@ -8,7 +8,7 @@ using ComponentArrays
 using Distributions, DistributionFits, StableRNGs
 using Chain
 using LoggingExtras
-using Test # inferred
+using Test: @inferred
 using Turing: Turing
 using MCMCChains: MCMCChains
 
