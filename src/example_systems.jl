@@ -110,7 +110,7 @@ function get_priors_df(::Val{:CrossInverts_samplesystem1}, site, scenario)
     ]
     df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
-    dist_p = Product(fill(dist_p0, 3))
+    dist_p = product_distribution(fill(dist_p0, 3))
     df_p = DataFrame(par = :m1₊p,
         dType = Product,
         med = missing,
@@ -129,7 +129,7 @@ gen_site_data_vec = () -> begin
         B = (mv₊x = [1.2, 2.2], mv₊i = 0.2))
     site = first(keys(p_sites))
     d_noise = Dict(:mv₊dec2 => fit(LogNormal, 1, Σstar(1.1)),
-        :mv₊x => Product([fit(LogNormal, 1, Σstar(1.1)),
+        :mv₊x => product_distribution([fit(LogNormal, 1, Σstar(1.1)),
             fit(LogNormal, 1, Σstar(1.1))]))
     rng = StableRNG(123)
     obs_tuple = map(keys(p_sites)) do site
@@ -219,7 +219,7 @@ function get_priors_df(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
     ]
     df_mv = df_from_paramsModeUpperRows(paramsModeUpperRows_multivariate)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
-    dist_p = Product(fill(dist_p0, 3))
+    dist_p = product_distribution(fill(dist_p0, 3))
     df_p = DataFrame(par = :mv₊p,
         dType = Product,
         med = missing,
@@ -228,7 +228,7 @@ function get_priors_df(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
     dist_x = @chain df_mv begin
         filter(:par => in((:mv₊x_1, :mv₊x_2)), _)
         _.dist
-        Product()
+        product_distribution()
     end
     df_x = DataFrame(par = :mv₊x,
         dType = Product,

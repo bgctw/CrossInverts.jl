@@ -43,8 +43,7 @@ end;
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
     @test eltype(res.priors) <: Distribution
-    @test keys(res.priors.state) == keys(popt.state)
-    @test keys(res.priors.par) == keys(popt.par)
+    @test keys(res.priors) == (keys(popt.state)..., keys(popt.par)...)
     @test axis_paropt(res.pset) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
 end;
