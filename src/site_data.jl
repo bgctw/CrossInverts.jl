@@ -67,6 +67,7 @@ function setup_tools_scenario(site, scenario, popt;
         system_num_dict(p, sys_num_dict))
     #
     pset = ODEProblemParSetter(system, popt)
+    problem = remake(problem, popt, pset)
     #
     # u_map = get_u_map(keys(u0), pset)
     # p_map = get_p_map(keys(p), pset)

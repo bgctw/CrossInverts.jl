@@ -1,34 +1,74 @@
 """
-    setup_psets_fixed_random_indiv(system, keys_popt, keys_opt_fixed, keys_opt_random)
+    gen_compute_indiv_rand(pset, random)
+
+Generate a function closure `compute_indiv_rand(u0, p)` that for each population
+random effect-mean `random` computes the individual random effect.
+It uses the provided `ProblemParSetter` to extract the optimized parameters
+from u0 and p.
+It is used to get an initial estimate of the random effects given a population
+mean, and the individual site parameters.
+"""
+function gen_compute_indiv_rand(pset::AbstractProblemParSetter, random) 
+    let pset=pset, random=random
+        compute_indiv_rand = (u0, p) -> begin
+            local popt = get_paropt_labeled(pset, u0, p; flatten1=Val(true))
+            # k = first(keys(random))
+            gen = (popt[k] ./ random[k] for k in keys(random))
+            v = reduce(vcat, gen)
+            MTKHelpers.attach_axis(v, first(getaxes(random)))
+        end
+    end # let
+end
+
+"""
+    setup_psets_fixed_random_indiv(system, popt, fixed, random)
 
 Setup the ProblemParSetters for given system and parameter names.
+Assume, that parameters are fiven in flat format, i.e. not state and par labels.
+Make sure, that popt holds state entries first.
 
-Only the entries in keys_opt_fixed and keys_opt_random that are actually occurring
+Only the entries in fixed and random that are actually occurring
 in popt_names are set.
 The indiv parameters are the difference set between popt_names and the others.
 
 Returns a NamedTuple with `ODEProblemParSetter` for `fixed`, `random`, and `indiv` parameters.
 """
-function setup_psets_fixed_random_indiv(system, keys_popt, keys_opt_fixed, keys_opt_random)
-    keys_opt_fixed1 = intersect(keys_popt, keys_opt_fixed)
-    keys_opt_random1 = intersect(keys_popt, keys_opt_random)
-    keys_opt_site1 = setdiff(keys_popt, union(keys_opt_fixed1, keys_opt_random1))
-    # psets = (;
-    #     fixed = ODEProblemParSetter(system, Axis(keys_opt_fixed1)),
-    #     random = ODEProblemParSetter(system, Axis(keys_opt_random1)),
-    #     indiv = ODEProblemParSetter(system, Axis(keys_opt_site1)))
+function setup_psets_fixed_random_indiv(system, popt, keys_fixed, keys_random)
+    fixed1 = intersect(keys(popt), keys_fixed)
+    random1 = intersect(keys(popt), keys_random)
+    indiv1 = setdiff(keys(popt), union(fixed1, random1))
     psets = (;
-        fixed = ODEProblemParSetter(system, keys_opt_fixed1),
-        random = ODEProblemParSetter(system, keys_opt_random1),
-        indiv = ODEProblemParSetter(system, keys_opt_site1))
+        fixed = ODEProblemParSetter(system, popt[fixed1]),
+        random = ODEProblemParSetter(system, popt[random1]),
+        indiv = ODEProblemParSetter(system, popt[indiv1]),)
+    # k = :state
+    # cvs = (popt,fixed,random)
+    # tup = map(keys(popt)) do k
+    #     keys_k = (;zip((:popt, :fixed, :random), map(x -> haskey(x,k) ? keys(x[k]) : NTuple{0,Symbol}(), cvs))...)
+    #     fixed1 = intersect(keys_k.popt, keys_k.fixed)
+    #     random1 = intersect(keys_k.popt, keys_k.random)
+    #     opt_site1 = setdiff(keys_k.popt, union(fixed1, random1))
+    #     popt[k][opt_site1]
+    #     #isempty(opt_site1) ? ComponentVector() : opt_site1
+    # end
+    # indiv = ComponentVector(;zip(keys(popt),tup)...)
+    # psets = (;
+    #     fixed = ODEProblemParSetter(system, Axis(fixed1)),
+    #     random = ODEProblemParSetter(system, Axis(random1)),
+    #     indiv = ODEProblemParSetter(system, Axis(opt_site1)))
+    # psets = (;
+    #     fixed = ODEProblemParSetter(system, fixed),
+    #     random = ODEProblemParSetter(system, random),
+    #     indiv = ODEProblemParSetter(system, indiv))
     return psets
 end
 
+
 # function setup_psets_fixed_random_indiv(system, chn::MCMCChains.Chains)
 #     @error "not fully implemented yet."
-#     keys_opt = extract_popt_names(chn)
+#     opt = extract_popt_names(chn)
 #     setup_psets_fixed_random_indiv(system,
-#         keys_opt[(:par_names, :keys_opt_fixed, :keys_opt_random)]...)
+#         opt[(:par_names, :fixed, :random)]...)
 # end
 
 """

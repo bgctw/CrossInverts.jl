@@ -19,6 +19,7 @@ export setup_tools_scenario, get_sitedata, get_priors_df, get_priors
 include("site_data.jl")
 
 export setup_psets_fixed_random_indiv, gen_sim_sols_probs, gen_sim_sols
+export gen_compute_indiv_rand
 include("util_mixed.jl")
 
 #export 
