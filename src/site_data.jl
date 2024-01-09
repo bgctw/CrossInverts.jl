@@ -53,6 +53,7 @@ function setup_tools_scenario(site; scenario, popt,
         p = nothing,
         random = ComponentVector(),
         )
+        #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
     priors_dict = get_priors_dict(Val(scenario.system), site; scenario)
     # default u0 and p from expected value of priors
