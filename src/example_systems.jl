@@ -99,7 +99,7 @@ function get_sitedata(::Val{:CrossInverts_samplesystem1}, site, scenario)
     data[site]
 end
 
-function get_priors_df(::Val{:CrossInverts_samplesystem1}, site, scenario)
+function get_priors_dict(::Val{:CrossInverts_samplesystem1}, site, scenario)
     #using DataFrames, Tables, DistributionFits
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -109,14 +109,10 @@ function get_priors_df(::Val{:CrossInverts_samplesystem1}, site, scenario)
         (:m1₊τ, LogNormal, 1.0, 5.0),
     ]
     df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
+    dd = Dict{Symbol, Distribution}(df_scalars.par .=> df_scalars.dist)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
-    dist_p = product_distribution(fill(dist_p0, 3))
-    df_p = DataFrame(par = :m1₊p,
-        dType = Product,
-        med = missing,
-        upper = missing,
-        dist = dist_p)
-    vcat(df_scalars, df_p)
+    dd[:m1₊p] = product_distribution(fill(dist_p0, 3))
+    dd
 end
 
 gen_site_data_vec = () -> begin
@@ -204,37 +200,28 @@ function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
     data[site]
 end
 
-function get_priors_df(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
+function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
         (:sv₊i, LogNormal, 1.0, 6.0),
         (:sv₊τ, LogNormal, 1.0, 5.0),
-    ]
-    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
-    # TODO par, index, ....
-    paramsModeUpperRows_multivariate = [
         (:sv₊x_1, LogNormal, 1.0, 2.0),
         (:sv₊x_2, LogNormal, 1.0, 2.0),
     ]
-    df_mv = df_from_paramsModeUpperRows(paramsModeUpperRows_multivariate)
+    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
+    dd = Dict{Symbol, Distribution}(df_scalars.par .=> df_scalars.dist)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
-    dist_p = product_distribution(fill(dist_p0, 3))
-    df_p = DataFrame(par = :sv₊p,
-        dType = Product,
-        med = missing,
-        upper = missing,
-        dist = dist_p)
-    dist_x = @chain df_mv begin
-        filter(:par => in((:sv₊x_1, :sv₊x_2)), _)
-        _.dist
-        product_distribution()
-    end
-    df_x = DataFrame(par = :sv₊x,
-        dType = Product,
-        med = missing,
-        upper = missing,
-        dist = dist_x)
-    vcat(df_scalars, df_p, df_x)
+    dd[:sv₊p] = product_distribution(fill(dist_p0, 3))
+    dd[:sv₊x] = product_distribution(dd[:sv₊x_1], dd[:sv₊x_2])
+    dd
 end
+
+function get_priors_σ_dict(::Val{:CrossInverts_samplesystem_vec})
+    d_exp = Distributions.AffineDistribution(1, 1, Exponential(2))
+    dd = Dict([:sv₊τ, :sv₊i] .=> d_exp)
+    dd[:sv₊x] = product_distribution(d_exp,d_exp)
+    dd
+end
+
 

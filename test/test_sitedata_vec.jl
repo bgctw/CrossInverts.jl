@@ -20,18 +20,18 @@ scenario = (system = :CrossInverts_samplesystem_vec,)
     @test length(res.:sv₊x.t) == length(res.:sv₊x.obs) == length(res.:sv₊x.obs_true)
 end;
 
-@testset "get_priors_df and get_priors" begin
-    priors_df = get_priors_df(Val(:CrossInverts_samplesystem_vec), :A, CA.ComponentVector())
-    @test all((:sv₊x, :sv₊p, :sv₊τ, :sv₊i) .∈ Ref(priors_df.par))
-    @test eltype(priors_df.dist) <: Distribution
+@testset "get_priors_dict and dict_to_cv" begin
+    priors_dict = get_priors_dict(Val(:CrossInverts_samplesystem_vec), :A, CA.ComponentVector())
+    @test all((:sv₊x, :sv₊p, :sv₊τ, :sv₊i) .∈ Ref(keys(priors_dict)))
+    @test eltype(values(priors_dict)) <: Distribution
     #
-    _mean = CA.ComponentVector(; zip(priors_df.par, mean.(priors_df.dist))...)
+    _mean = CA.ComponentVector(; zip(keys(priors_dict), mean.(values(priors_dict)))...)
     popt = CA.ComponentVector(state = _mean[(:sv₊x,)], par = _mean[(:sv₊τ, :sv₊i)])
-    priors = get_priors(keys(popt.state), priors_df)
+    priors = dict_to_cv(keys(popt.state), priors_dict)
     @test keys(priors) == keys(popt.state)
-    priors = get_priors(keys(popt.par), priors_df)
+    priors = dict_to_cv(keys(popt.par), priors_dict)
     @test keys(priors) == keys(popt.par)
-    priors = get_priors(reverse(keys(popt.par)), priors_df)
+    priors = dict_to_cv(reverse(keys(popt.par)), priors_dict)
     @test keys(priors) == reverse(keys(popt.par))
 end;
 
