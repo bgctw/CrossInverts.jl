@@ -5,6 +5,7 @@ using ModelingToolkit, OrdinaryDiffEq
 using MTKHelpers
 using DataFrames
 using ComponentArrays: ComponentArrays as CA
+using StableRNGs
 
 @named sv = CP.samplesystem_vec()
 @named system = embed_system(sv)
@@ -43,30 +44,24 @@ tmpf = () -> begin
     rand(dist, 2)
 end
 
-
-df_site_u0_p_A = DataFrame(
-    site = :A,
-    u0 = Ref(label_state(toolsA.pset, toolsA.problem.u0)),  
-    p = Ref(label_par(toolsA.pset, toolsA.problem.p)),   
+p_sites = CP.get_site_parameters(Val(:CrossInverts_samplesystem1))
+df = DataFrame(
+    site = collect(keys(p_sites)), 
+    u0 = collect(CP.map_keys(x -> x.u0, p_sites; rewrap = Val(false))),
+    p = collect(CP.map_keys(x -> x.p, p_sites; rewrap = Val(false))),
 )
 
-_get_u0p_ranef = () -> begin
-    probo = sample_and_add_ranef(toolsA.problem, toolsA.priors_random; psets)
-    (label_state(toolsA.pset, probo.u0), label_par(toolsA.pset, probo.p))
-end
-_get_u0p_ranef()
-df_site_u0_p_BC = DataFrame(site = [:B, :C])
-DataFrames.transform!(df_site_u0_p_BC, [] => DataFrames.ByRow(_get_u0p_ranef) => [:u0, :p])
-
-df_site_u0_p = vcat(df_site_u0_p_A, df_site_u0_p_BC)
-df = copy(df_site_u0_p)
-
+popt_sites = get_paropt_labeled.(Ref(pset), df.u0, df.p; flatten1=Val(true))
+_tup = map(k -> mean(getproperty.(popt_sites, k)), keys(popt)) 
+popt_mean = CA.ComponentVector(;zip(keys(popt), _tup)...)
+fixed = popt_mean[keys(fixed)]
+random = popt_mean[keys(random)]
 
 @testset "gen_compute_indiv_rand" begin
     _compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)    
     tmp = _compute_indiv_rand(toolsA.problem.u0, toolsA.problem.p)
     @test keys(tmp) == keys(random)
-    tmp[:sv₊x] = popt[:sv₊x] ./ random[:sv₊x] # popt -> toolsA -> df_site.u0/p
+    tmp[:sv₊x] = popt_mean[:sv₊x] ./ random[:sv₊x] # popt -> toolsA -> df_site.u0/p
 end
 
 _compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)    
@@ -88,7 +83,7 @@ DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
     sols_probs = sim_sols_probs(fixed, random, hcat(df.indiv...), hcat(df.indiv_random...));
     sol = first(sols_probs).sol;
     solA0 = solve(toolsA.problem, solver) # same as with initial popt -> recomputed
-    solA0 == sol
+    #solA0 == sol # fixed is now on mean instead of p.A
     #sol.t
     #sol[sv.x]
 
@@ -100,6 +95,6 @@ DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
         indiv_random = hcat(df.indiv_random...),
         )
     sols = sim_sols(poptl);
-    sol = first(sols);
-    solA0 == sol
+    sol2 = first(sols);
+    sol2 == sol
 end;

@@ -39,8 +39,8 @@ end
 
 gen_site_data1 = () -> begin
     @named m1 = CP.samplesystem1()
-    @named sys = embed_system(m1)
-    _dict_nums = get_system_symbol_dict(sys)
+    @named system = embed_system(m1)
+    _dict_nums = get_system_symbol_dict(system)
     t = [0.2, 0.4, 1.0, 2.0]
     p_sites = ComponentVector(A = (m1₊x1 = 1.0, m1₊i = 4),
         B = (m1₊x1 = 1.2, m1₊i = 0.2))
@@ -50,7 +50,7 @@ gen_site_data1 = () -> begin
     obs_tuple = map(keys(p_sites)) do site
         st = Dict(m1.x1 .=> p_sites[site].m1₊x1, m1.x2 .=> 1.0)
         p_new = Dict(m1.i .=> p_sites[site].m1₊i)
-        prob = ODEProblem(sys, st, (0.0, 2.0), p_new)
+        prob = ODEProblem(system, st, (0.0, 2.0), p_new)
         sol = solve(prob, Tsit5(), saveat = t)
         #sol[[m1.x[1], m1.dec2]]
         #sol[_dict_nums[:m1₊dec2]]
@@ -115,91 +115,14 @@ function get_priors_dict(::Val{:CrossInverts_samplesystem1}, site; scenario)
     dd
 end
 
-gen_site_data_vec = () -> begin
-    #using DistributionFits, StableRNGs
-    @named sv = CP.samplesystem_vec()
-    @named sys = embed_system(sv)
-    _dict_nums = get_system_symbol_dict(sys)
-    t = [0.2, 0.4, 1.0, 2.0]
-    p_sites = CA.ComponentVector(A = (sv₊x = [1.1, 2.1], sv₊i = 4),
-        B = (sv₊x = [1.2, 2.2], sv₊i = 0.2))
-    site = first(keys(p_sites))
-    d_noise = Dict(:sv₊dec2 => fit(LogNormal, 1, Σstar(1.1)),
-        :sv₊x => product_distribution([fit(LogNormal, 1, Σstar(1.1)),
-            fit(LogNormal, 1, Σstar(1.1))]))
-    rng = StableRNG(123)
-    obs_tuple = map(keys(p_sites)) do site
-        st = Dict(Symbolics.scalarize(sv.x .=> p_sites[site].sv₊x))
-        p_new = Dict(sv.i .=> p_sites[site].sv₊i)
-        prob = ODEProblem(sys, st, (0.0, 2.0), p_new)
-        sol = solve(prob, Tsit5(), saveat = t)
-        #sol[[sv.x[1], sv.dec2]]
-        #sol[_dict_nums[:sv₊dec2]]
-        streams = (:sv₊x, :sv₊dec2)
-        #stream = last(streams) #stream = first(streams)
-        tmp = map(streams) do stream
-            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
-            noise = rand(rng, d_noise[stream], length(obs_true))
-            obs = length(size(noise)) == 1 ?
-                  obs = obs_true .+ noise :
-                  obs = obs_true .+ eachcol(noise)
-            (; t, obs, obs_true)
-        end
-        (; zip(streams, tmp)...)
-    end
-    res = (; zip(keys(p_sites), obs_tuple)...)
-    #clipboard(res) # not on slurm
-    res  # copy from terminal and paste into get_sitedata
+function get_priors_random_dict(::Val{:CrossInverts_samplesystem1}; scenario)
+    d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
+    dd = Dict{Symbol, Distribution}([:m1₊x1,:m1₊x2,:m1₊i,:m1₊τ] .=> d_exp)
+    dd[:sv₊p] = product_distribution(d_exp, d_exp, d_exp)
+    dd
 end
 
-function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
-    data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [
-                    [2.5453299001305467, 3.384460308262885],
-                    [2.746948743128864, 3.4835588561848265],
-                    [3.2254856047045917, 3.903390612822624],
-                    [3.266940736476312, 3.93427603779292],
-                ],
-                obs_true = [
-                    [1.5618233077483297, 2.323664986314844],
-                    [1.86384268769495, 2.496122233182189],
-                    [2.238921809653305, 2.810681108554734],
-                    [2.333112722731517, 3.0043628563264932],
-                ]),
-            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [
-                    3.92856938742506, 4.1190566928615,
-                    4.558893503141354, 4.769187417431323,
-                ],
-                obs_true = [
-                    3.020764482209297, 3.2449589031368458,
-                    3.653885441121154, 3.905671713224441,
-                ])),
-        B = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [
-                    [1.8780444827225167, 2.8219932941025663],
-                    [2.068420236029813, 2.5336002971521934],
-                    [1.6869699748371052, 1.7602460722708764],
-                    [1.4780942191074935, 1.2543547914839175],
-                ],
-                obs_true = [
-                    [0.9994470193335424, 1.7315361907350357],
-                    [0.8587653931138475, 1.3703262085493344],
-                    [0.6318570996015761, 0.7114868532943917],
-                    [0.5132149571227039, 0.305823617777594],
-                ]),
-            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [
-                    3.3506468414438086, 2.685921077040386,
-                    1.869960763222208, 1.4577056889312732,
-                ],
-                obs_true = [
-                    2.2509970479555466, 1.7814240711141347,
-                    0.9249329092827092, 0.39757070311087217,
-                ])))
-    data[site]
-end
-
+#--------------------------- samplesystem_vec -------------------------
 function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
@@ -223,5 +146,167 @@ function get_priors_random_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
     dd[:sv₊x] = product_distribution(d_exp,d_exp)
     dd
 end
+
+function get_site_parameters(::Val{:CrossInverts_samplesystem1})
+    @named sv = samplesystem_vec()
+    @named system = embed_system(sv)
+    scenario = :CrossInverts_samplesystem_vec
+    _dict_nums = get_system_symbol_dict(system)
+    # setup a problem, numbers do not matter, because set below from prior mean
+    t = [0.2, 0.4, 1.0, 2.0]
+    p_siteA = ComponentVector(sv₊x = [1.1, 2.1], sv₊i = 4)
+    st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
+    p_new = Dict(sv.i .=> p_siteA.sv₊i)
+    problem = ODEProblem(system, st, (0.0, 2.0), p_new)
+
+    priors_dict = get_priors_dict(Val(scenario), :A; scenario=nothing)
+    _m = Dict(k => mean(v) for (k,v) in priors_dict)
+    fixed = ComponentVector(sv₊p = _m[:sv₊p])
+    random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
+    indiv = ComponentVector(sv₊i = _m[:sv₊i])
+    popt = vcat_statesfirst(fixed, random, indiv; system)
+    psets = setup_psets_fixed_random_indiv(system, popt, keys(fixed), keys(random))
+    pset = ODEProblemParSetter(system, popt)
+    problem = remake(problem, popt, pset)
+
+    p_A = ComponentVector(u0 = label_state(pset, problem.u0),
+        p = label_par(pset, problem.p))
+    # multiply random effects for sites B and C
+    priors_random = dict_to_cv(keys(random), get_priors_random_dict(
+        Val(scenario); scenario=nothing))
+    rng = StableRNG(234)
+    _get_u0p_ranef = () -> begin
+        probo = sample_and_add_ranef(problem, priors_random, rng; psets)
+        ComponentVector(u0 = label_state(pset, probo.u0), p = label_par(pset, probo.p))
+    end
+    _get_u0p_ranef()
+    p_sites = ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
+end
+
+
+gen_site_data_vec = () -> begin
+    p_sites = get_site_parameters(Val(:CrossInverts_samplesystem1))
+    #using DistributionFits, StableRNGs, Statistics
+    # other usings from test_util_mixed
+    @named sv = CP.samplesystem_vec()
+    @named system = embed_system(sv)
+    scenario = :CrossInverts_samplesystem_vec
+    _dict_nums = get_system_symbol_dict(system)
+    # setup a problem, numbers do not matter, because set below from prior mean
+    t = [0.2, 0.4, 1.0, 2.0]
+    p_siteA = CA.ComponentVector(sv₊x = [1.1, 2.1], sv₊i = 4)
+    st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
+    p_new = Dict(sv.i .=> p_siteA.sv₊i)
+    problem = ODEProblem(system, st, (0.0, 2.0), p_new)
+
+    #site = first(keys(p_sites))
+    rng = StableRNG(123)
+    d_noise = Dict(:sv₊dec2 => fit(LogNormal, 1, Σstar(1.1)),
+        :sv₊x => product_distribution([fit(LogNormal, 1, Σstar(1.1)),
+            fit(LogNormal, 1, Σstar(1.1))]))
+    obs_tuple = map(keys(p_sites)) do site
+        #st = Dict(Symbolics.scalarize(sv.x .=> p_sites[site].u0.sv₊x))
+        #p_new = Dict(sv.i .=> p_sites[site].sv₊i)
+        #prob = ODEProblem(system, st, (0.0, 2.0), p_new)
+        probo = remake(problem,
+            u0 = CA.getdata(p_sites[site].u0), p = CA.getdata(p_sites[site].p))
+        sol = solve(probo, Tsit5(), saveat = t)
+        #sol[[sv.x[1], sv.dec2]]
+        #sol[_dict_nums[:sv₊dec2]]
+        streams = (:sv₊x, :sv₊dec2)
+        #stream = last(streams) #stream = first(streams)
+        tmp = map(streams) do stream
+            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
+            noise = rand(rng, d_noise[stream], length(obs_true))
+            obs = length(size(noise)) == 1 ?
+                  obs = obs_true .+ noise :
+                  obs = obs_true .+ eachcol(noise)
+            (; t, obs, obs_true)
+        end
+        (; zip(streams, tmp)...)
+    end
+    res = (; zip(keys(p_sites), obs_tuple)...)
+    #clipboard(res) # not on slurm
+    res  # copy from terminal and paste into get_sitedata
+end
+
+function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
+    data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    [1.9521927604522915, 2.047517187862125],
+                    [1.959751009453174, 2.1821024478735236],
+                    [1.994686092440237, 2.255455473386112],
+                    [2.2082422198908183, 2.2818243329314463],
+                ],
+                obs_true = [
+                    [1.1107462105660761, 1.1132307256263168],
+                    [1.1374030624789362, 1.1517682443665676],
+                    [1.1662811048774226, 1.2254956639115882],
+                    [1.1723596106288048, 1.2754477749552304],
+                ]),
+            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    2.3735296942998776, 2.382273373816772,
+                    2.341284913075192, 2.5324964004269113,
+                ],
+                obs_true = [
+                    1.3025989791594734, 1.3476919966398768,
+                    1.4339609606781936, 1.4924102716381489,
+                ])),
+        B = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    [2.1179381383169464, 2.1210382245945834],
+                    [2.0822012511935855, 2.0674226074688833],
+                    [2.1502642025499505, 2.306549239404262],
+                    [2.1769831651053204, 2.2252801829256583],
+                ],
+                obs_true = [
+                    [1.151651990792978, 1.1132958972995004],
+                    [1.1625064462552526, 1.151819832008928],
+                    [1.1747525567182713, 1.2255212968919122],
+                    [1.1775878195616543, 1.2754555091009407],
+                ]),
+            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    2.245788014365762, 2.277509740281726,
+                    2.4334715751574127, 2.5137082813474017,
+                ],
+                obs_true = [
+                    1.3026752369854613, 1.3477523596973535,
+                    1.4339909540059328, 1.4924193214155894,
+                ])),
+        C = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    [2.0201527203706373, 2.073290144592896],
+                    [2.3016809589613776, 2.2358258450652864],
+                    [2.075680650697116, 2.104109424435813],
+                    [2.1132474277961473, 2.2382429293126203],
+                ],
+                obs_true = [
+                    [1.0937218361731353, 1.1239461365370844],
+                    [1.1276412608646247, 1.1602478223825532],
+                    [1.1645958587429655, 1.229697745239713],
+                    [1.1724268272073743, 1.2767519138766517],
+                ]),
+            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    2.2606131416433883, 2.3903847629996546,
+                    2.340386125399106, 2.3963968314981225,
+                ],
+                obs_true = [
+                    1.3151371556509526, 1.3576140095820832,
+                    1.438877845132026, 1.493936253618901,
+                ])))
+    data[site]
+end
+
+function map_keys(FUN, cv::ComponentVector; rewrap::Val{is_rewrap}=Val(true)) where is_rewrap
+    tup = map(keys(cv)) do k
+        FUN(cv[k])
+    end
+    is_rewrap ? ComponentVector(;zip(keys(cv),tup)...) : tup
+end
+
+
 
 
