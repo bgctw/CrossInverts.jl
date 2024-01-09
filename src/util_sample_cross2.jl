@@ -225,8 +225,8 @@ function gen_model_cross(;
                 end
                 #i0_isite_offset = i0_siteoffsets + (i_indiv-1)*count_paropt(psets.random)
                 for i in 1:count_paropt(psets.random)
-                    σ = log(prand_σstar[i])  # Lognormal-σ from multiplicative stddev σ*=e^σ
-                    indiv_random[i, i_indiv] ~ LogNormal(0, σ) # = popt0[i0_isite_offset+i] 
+                    #σ = log(prand_σstar[i])  # Lognormal-σ from multiplicative stddev σ*=e^σ
+                    indiv_random[i, i_indiv] ~ fit(LogNormal(1, Σstar(exp(prand_σstar[i])))) # = popt0[i0_isite_offset+i] 
                 end
             end
             #poptl = CA.ComponentVector(popt, first(getaxes(popt0)))

@@ -41,11 +41,13 @@ end;
     #popt = CA.ComponentVector(state = (sv₊x1=1.0, sv₊x2=1.0), par=(sv₊τ=1.0, sv₊i=1.0))
     popt = CA.ComponentVector(state = (sv₊x = [1.0, 1.0],),
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
-    res = setup_tools_scenario(:A; scenario, popt, system = sys);
+    res = setup_tools_scenario(:A; scenario, popt, system = sys, random);
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
     @test eltype(res.priors) <: Distribution
     @test keys(res.priors) == (keys(popt.state)..., keys(popt.par)...)
+    @test eltype(res.priors_random) <: Distribution
+    @test keys(res.priors_random) == keys(random)
     @test axis_paropt(res.pset) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
 end;
