@@ -33,11 +33,32 @@ psets = setup_psets_fixed_random_indiv(system, popt, keys(fixed), keys(random))
     @test get_paropt_labeled(psets.indiv, toolsA.problem; flatten1=Val(true)) == indiv
 end;
 
-df_site_u0_p = DataFrame(
-    site = [:A, :B, :C],
-    u0 = fill((label_state(toolsA.pset, toolsA.problem.u0)), 3),  
-    p = fill((label_par(toolsA.pset, toolsA.problem.p)), 3),   
+
+tmpf = () -> begin
+    #using DistributionFits
+    #using StatsPlots
+    problem = toolsA.problem
+    priors_random = toolsA.priors_random
+    plot(dist); vline!([1.0])
+    rand(dist, 2)
+end
+
+
+df_site_u0_p_A = DataFrame(
+    site = :A,
+    u0 = Ref(label_state(toolsA.pset, toolsA.problem.u0)),  
+    p = Ref(label_par(toolsA.pset, toolsA.problem.p)),   
 )
+
+_get_u0p_ranef = () -> begin
+    probo = sample_and_add_ranef(toolsA.problem, toolsA.priors_random; psets)
+    (label_state(toolsA.pset, probo.u0), label_par(toolsA.pset, probo.p))
+end
+_get_u0p_ranef()
+df_site_u0_p_BC = DataFrame(site = [:B, :C])
+DataFrames.transform!(df_site_u0_p_BC, [] => DataFrames.ByRow(_get_u0p_ranef) => [:u0, :p])
+
+df_site_u0_p = vcat(df_site_u0_p_A, df_site_u0_p_BC)
 df = copy(df_site_u0_p)
 
 

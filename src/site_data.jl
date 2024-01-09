@@ -79,9 +79,9 @@ function setup_tools_scenario(site; scenario, popt,
     popt_flat = flatten1(popt_l)
     priors = dict_to_cv(keys(popt_flat), priors_dict)
     #
-    # priors_dict_σ = 
-    # priors_σ = dict_to_cv(keys(popt_flat), priors_dict)
-    (; pset, problemupdater, priors, problem, sitedata)
+    priors_random_dict = get_priors_random_dict(Val(scenario.system); scenario)
+    priors_random = dict_to_cv(keys(random), priors_random_dict)
+    (; pset, problemupdater, priors, priors_random, problem, sitedata)
 end
 
 """

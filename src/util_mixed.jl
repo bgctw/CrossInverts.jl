@@ -142,3 +142,23 @@ function gen_sim_sols(sim_sols_probs)
     end
 end
 
+function sample_and_add_ranef(problem, priors_random; psets) 
+    keys_random = keys(priors_random)
+    #kp = first(keys(random))
+    tup = map(keys_random) do kp
+        dist_sigma = priors_random[kp]
+        #sigma_star_d = mean(dist_sigma)
+        sigma_star_d = rand(dist_sigma)
+        dim_d = length(dist_sigma)
+        # TODO instead of sampling independent fit Multivariate LogNormal with marginal
+        # expectations of 1
+        dist_scalar = map(sigma_star_d) do sigma_star
+            fit(LogNormal, 1, Σstar(sigma_star)) # Σstar
+        end
+        dist = dim_d == 1 ? dist_scalar : product_distribution(dist_scalar...)
+        rand(dist)
+    end
+    ranef = ComponentVector(;zip(keys_random, tup)...)
+    paropt_r = get_paropt_labeled(psets.random, problem) .* ranef
+    remake(problem, paropt_r, psets.random)
+end

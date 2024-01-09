@@ -217,9 +217,9 @@ function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     dd
 end
 
-function get_priors_σ_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
-    d_exp = Distributions.AffineDistribution(1, 1, Exponential(2))
-    dd = Dict([:sv₊τ, :sv₊i] .=> d_exp)
+function get_priors_random_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
+    d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
+    dd = Dict{Symbol, Distribution}([:sv₊τ, :sv₊i] .=> d_exp)
     dd[:sv₊x] = product_distribution(d_exp,d_exp)
     dd
 end
