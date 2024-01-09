@@ -53,14 +53,14 @@ function setup_tools_scenario(site, scenario, popt;
         p = nothing,
         )
     sys_num_dict = get_system_symbol_dict(system)
-    priors_df = get_priors_df(Val(scenario.system), site, scenario)
+    dict = get_priors_dict(Val(scenario.system), site, scenario)
     # default u0 and p from expected value of priors
     if isnothing(u0)
-        priors_u0 = get_priors(unique(symbol_op.(states(system))), priors_df)
+        priors_u0 = dict_to_cv(unique(symbol_op.(states(system))), dict)
         u0 = meandist2componentarray(priors_u0)
     end
     if isnothing(p)
-        priors_p = get_priors(unique(symbol_op.(parameters(system))), priors_df)
+        priors_p = dict_to_cv(unique(symbol_op.(parameters(system))), dict)
         p = meandist2componentarray(priors_p)
     end
     problem = ODEProblem(system, system_num_dict(u0, sys_num_dict), tspan,
@@ -76,7 +76,7 @@ function setup_tools_scenario(site, scenario, popt;
     #
     popt_l = label_paropt(pset, popt) # axis with split state and par
     popt_flat = flatten1(popt_l)
-    priors = get_priors(keys(popt_flat), priors_df)
+    priors = dict_to_cv(keys(popt_flat), dict)
     #
     (; pset, problemupdater, priors, problem, sitedata)
 end
@@ -112,11 +112,11 @@ am implementation for `Val(:CrossInverts_samplesystem1)` independent of scenario
 function get_sitedata end
 
 """
-    get_priors_df(ValueType, site, scenario)
+    get_priors_dict(ValueType, site, scenario)
 
 Provide a DataFrame with columns :par, :dist    
 """
-function get_priors_df end
+function get_priors_dict end
 
 """
     df_from_paramsModeUpperRows(paramsModeUpperRows)
@@ -135,14 +135,15 @@ function df_from_paramsModeUpperRows(paramsModeUpperRows)
 end
 
 """
-    get_priors(pars, priors_df::DataFrame)
+    dict_to_cv(keys, dict::DataFrame)
 
-Extract the ComponentVector(pars -> Distribution) from priors_df with columns :par and :dist
+Extract the ComponentVector(keys -> Distribution) from dict(:par => :dist)
 """
-function get_priors(pars, priors_df::DataFrame)
-    @chain priors_df begin
-        filter(:par => ∈(pars), _)  # only those rows for pars
-        ComponentVector(; zip(_.par, _.dist)...)
-        getindex(_, pars)           # reorder 
-    end
+function dict_to_cv(keys, dict::AbstractDict)
+    ComponentVector(;zip(keys, getindex.(Ref(dict), keys))... )
+    # @chain dict begin
+    #     filter(:par => ∈(keys), _)  # only those rows for keys
+    #     ComponentVector(; zip(_.par, _.dist)...)
+    #     getindex(_, keys)           # reorder 
+    # end
 end

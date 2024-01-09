@@ -15,7 +15,7 @@ using MCMCChains: MCMCChains
 
 include("example_systems.jl")
 
-export setup_tools_scenario, get_sitedata, get_priors_df, get_priors
+export setup_tools_scenario, get_sitedata, get_priors_dict, dict_to_cv
 include("site_data.jl")
 
 export setup_psets_fixed_random_indiv, gen_sim_sols_probs, gen_sim_sols
