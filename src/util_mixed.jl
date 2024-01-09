@@ -142,13 +142,14 @@ function gen_sim_sols(sim_sols_probs)
     end
 end
 
-function sample_and_add_ranef(problem, priors_random; psets) 
+function sample_and_add_ranef(problem, priors_random::ComponentVector, rng::AbstractRNG=default_rng(); psets) 
     keys_random = keys(priors_random)
+    #keys_gen = (k for k in keys_random) # mappring directly of keys does not work
     #kp = first(keys(random))
     tup = map(keys_random) do kp
         dist_sigma = priors_random[kp]
         #sigma_star_d = mean(dist_sigma)
-        sigma_star_d = rand(dist_sigma)
+        sigma_star_d = rand(rng, dist_sigma)
         dim_d = length(dist_sigma)
         # TODO instead of sampling independent fit Multivariate LogNormal with marginal
         # expectations of 1
@@ -156,7 +157,7 @@ function sample_and_add_ranef(problem, priors_random; psets)
             fit(LogNormal, 1, Σstar(sigma_star)) # Σstar
         end
         dist = dim_d == 1 ? dist_scalar : product_distribution(dist_scalar...)
-        rand(dist)
+        rand(rng, dist)
     end
     ranef = ComponentVector(;zip(keys_random, tup)...)
     paropt_r = get_paropt_labeled(psets.random, problem) .* ranef

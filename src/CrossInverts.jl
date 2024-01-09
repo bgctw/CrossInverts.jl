@@ -5,12 +5,13 @@ using MTKHelpers
 using DataFrames
 using Tables: Tables
 using ComponentArrays
-using Distributions, DistributionFits, StableRNGs
+using Distributions, DistributionFits
 using Chain
 using LoggingExtras
 using Test: @inferred
 using Turing: Turing
 using MCMCChains: MCMCChains
+using Random, StableRNGs
 
 
 include("example_systems.jl")

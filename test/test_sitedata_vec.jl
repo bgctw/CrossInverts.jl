@@ -41,6 +41,7 @@ end;
     #popt = CA.ComponentVector(state = (sv₊x1=1.0, sv₊x2=1.0), par=(sv₊τ=1.0, sv₊i=1.0))
     popt = CA.ComponentVector(state = (sv₊x = [1.0, 1.0],),
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
+    random = flatten1(popt)[(:sv₊x, :sv₊τ)]
     res = setup_tools_scenario(:A; scenario, popt, system = sys, random);
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
