@@ -72,16 +72,18 @@ end
 # end
 
 """
-    sim_sols_probs(fixed, random, indiv, indiv_random; pset_u0, pset_p, u0, p)
+    sim_sols_probs(fixed, random, indiv, indiv_random)
 
 Update and simulate system (given with tools to gen_sim_sols_probs) by 
-- first update given u0, and p using ProblemParSetter pset_u0 and pset_p
 - for each individual i
   - update fixed parameters: fixed 
   - update random parameters: random .* indiv_random[:,i]
   - update site parameters: indiv[:,i]
   - simulate the problem
 - return a vector(n_indiv) of (;sol, problem_opt)
+
+If non-optimized p and u0 differ between individuals, they must already be
+set in tools[i_indiv].problem.
 """
 function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_gen...)
     fLogger = EarlyFilteredLogger(current_logger()) do log
@@ -98,23 +100,9 @@ function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_g
         kwargs_gen = kwargs_gen, 
         fLogger = fLogger #, psetci_u_PlantNP=psetci_u_PlantNP 
         #
-        (fixed, random, indiv, indiv_random;
-            pset_u0=nothing, pset_p=nothing, u0=nothing, p=nothing,
-            kwargs...) -> begin
-            is_set_u0 = !isnothing(pset_u0) && !isnothing(u0)
-            is_set_p = !isnothing(pset_p) && !isnothing(p)
+        (fixed, random, indiv, indiv_random; kwargs...) -> begin
             map(1:n_indiv) do i_indiv
-                # need a different tools, because tools.problem.u0 component that are 
-                # not optimized may differ
                 problem_opt = problems_indiv[i_indiv] # no need to copy, in update_statepar 
-                # if u0 or p are provided with corresponding setter, first invoke those
-                # u0 and p need to be provided as matrix with one column for each site
-                if is_set_u0
-                    problem_opt = @inferred remake(problem_opt, u0[:, i_indiv], pset_u0)
-                end
-                if is_set_p
-                    problem_opt = @inferred remake(problem_opt, p[:, i_indiv], pset_p)
-                end
                 problem_opt = @inferred remake(problem_opt, fixed, psets.fixed)
                 problem_opt = remake(problem_opt,
                     random .* indiv_random[:, i_indiv], psets.random)
