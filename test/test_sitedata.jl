@@ -12,7 +12,8 @@ using Distributions
 scenario = (system = :CrossInverts_samplesystem1,)
 
 @testset "get_sitedata" begin
-    res = get_sitedata(Val(:CrossInverts_samplesystem1), :A, CA.ComponentVector())
+    res = get_sitedata(Val(:CrossInverts_samplesystem1), :A; 
+        scenario = CA.ComponentVector())
     # keys for different data streams
     @test all((:m1₊x1, :m1₊dec2) .∈ Ref(keys(res)))
     # several information inside and same length
@@ -21,7 +22,8 @@ scenario = (system = :CrossInverts_samplesystem1,)
 end;
 
 @testset "get_priors_dict and dict_to_cv" begin
-    priors_dict = get_priors_dict(Val(:CrossInverts_samplesystem1), :A, CA.ComponentVector())
+    priors_dict = get_priors_dict(Val(:CrossInverts_samplesystem1), :A; 
+        scenario = CA.ComponentVector())
     @test all((:m1₊x1, :m1₊x2, :m1₊τ, :m1₊i) .∈ Ref(keys(priors_dict)))
     @test eltype(values(priors_dict)) <: Distribution
     #
@@ -39,7 +41,7 @@ end;
     #popt = CA.ComponentVector(state = (m1₊x1=1.0, m1₊x2=1.0), par=(m1₊τ=1.0, m1₊i=1.0))
     popt = CA.ComponentVector(state = (m1₊x1 = 1.0, m1₊x2 = 1.0),
         par = (m1₊τ = 1.0, m1₊p = fill(1.0, 3)))
-    res = setup_tools_scenario(:A, scenario, popt; system = sys)
+    res = setup_tools_scenario(:A; scenario, popt, system = sys)
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
     @test eltype(res.priors) <: Distribution

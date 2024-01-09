@@ -20,7 +20,7 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 # indiv = CA.ComponentVector(par=(sv₊i = 0.2,))
 # popt = merge_subvectors(fixed, random, indiv; mkeys=(:state, :par))
 
-toolsA = setup_tools_scenario(:A, scenario, popt; system);
+toolsA = setup_tools_scenario(:A; scenario, popt, system, random);
 
 psets = setup_psets_fixed_random_indiv(system, popt, keys(fixed), keys(random))
 
@@ -57,7 +57,7 @@ _extract_indiv = (u0, p) -> vcat(u0, p)[symbols_paropt(psets.indiv)]
 tmp = _extract_indiv(df.u0[1], df.p[1])
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_extract_indiv) => :indiv)
 
-_setuptools = (u0, p) -> setup_tools_scenario(:A, scenario, popt; system, u0, p);
+_setuptools = (u0, p) -> setup_tools_scenario(:A; scenario, popt, system, u0, p);
 _setuptools(df.u0[1], df.p[1]);
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
 

@@ -45,22 +45,23 @@
 """
 TODO describe
 """
-function setup_tools_scenario(site, scenario, popt;
+function setup_tools_scenario(site; scenario, popt,
         system,
-        sitedata = get_sitedata(Val(scenario.system), site, scenario),
+        sitedata = get_sitedata(Val(scenario.system), site; scenario),
         tspan = (0, maximum(map(stream -> maximum(stream.t), sitedata))),
         u0 = nothing,
         p = nothing,
+        random = ComponentVector(),
         )
     sys_num_dict = get_system_symbol_dict(system)
-    dict = get_priors_dict(Val(scenario.system), site, scenario)
+    priors_dict = get_priors_dict(Val(scenario.system), site; scenario)
     # default u0 and p from expected value of priors
     if isnothing(u0)
-        priors_u0 = dict_to_cv(unique(symbol_op.(states(system))), dict)
+        priors_u0 = dict_to_cv(unique(symbol_op.(states(system))), priors_dict)
         u0 = meandist2componentarray(priors_u0)
     end
     if isnothing(p)
-        priors_p = dict_to_cv(unique(symbol_op.(parameters(system))), dict)
+        priors_p = dict_to_cv(unique(symbol_op.(parameters(system))), priors_dict)
         p = meandist2componentarray(priors_p)
     end
     problem = ODEProblem(system, system_num_dict(u0, sys_num_dict), tspan,
@@ -76,8 +77,10 @@ function setup_tools_scenario(site, scenario, popt;
     #
     popt_l = label_paropt(pset, popt) # axis with split state and par
     popt_flat = flatten1(popt_l)
-    priors = dict_to_cv(keys(popt_flat), dict)
+    priors = dict_to_cv(keys(popt_flat), priors_dict)
     #
+    # priors_dict_σ = 
+    # priors_σ = dict_to_cv(keys(popt_flat), priors_dict)
     (; pset, problemupdater, priors, problem, sitedata)
 end
 
@@ -112,11 +115,18 @@ am implementation for `Val(:CrossInverts_samplesystem1)` independent of scenario
 function get_sitedata end
 
 """
-    get_priors_dict(ValueType, site, scenario)
+    get_priors_dict(ValueType, site; scenario)
 
-Provide a DataFrame with columns :par, :dist    
+Provide a dictionary (par -> Distribution) for prior parameters and states.
 """
 function get_priors_dict end
+
+"""
+    get_priors_random_dict(ValueType; scenario)
+
+Provide a dictionary (par -> Distribution) for prior parameters and states.
+"""
+function get_priors_random_dict end
 
 """
     df_from_paramsModeUpperRows(paramsModeUpperRows)
