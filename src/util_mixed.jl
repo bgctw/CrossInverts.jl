@@ -98,6 +98,7 @@ function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_g
         psets = psets, problemupdater = problemupdater,
         n_indiv = n_indiv,
         kwargs_gen = kwargs_gen, 
+        pset1 = tools[1].pset
         fLogger = fLogger #, psetci_u_PlantNP=psetci_u_PlantNP 
         #
         (fixed, random, indiv, indiv_random; kwargs...) -> begin

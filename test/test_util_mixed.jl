@@ -6,6 +6,7 @@ using MTKHelpers
 using DataFrames
 using ComponentArrays: ComponentArrays as CA
 using StableRNGs
+using Statistics
 
 @named sv = CP.samplesystem_vec()
 @named system = embed_system(sv)
@@ -51,11 +52,13 @@ df = DataFrame(
     p = collect(CP.map_keys(x -> x.p, p_sites; rewrap = Val(false))),
 )
 
-popt_sites = get_paropt_labeled.(Ref(pset), df.u0, df.p; flatten1=Val(true))
+popt_sites = get_paropt_labeled.(Ref(toolsA.pset), df.u0, df.p; flatten1=Val(true))
+#getproperty.(popt_sites, :sv₊p)
 _tup = map(k -> mean(getproperty.(popt_sites, k)), keys(popt)) 
-popt_mean = CA.ComponentVector(;zip(keys(popt), _tup)...)
+popt = popt_mean = CA.ComponentVector(;zip(keys(popt), _tup)...)
 fixed = popt_mean[keys(fixed)]
 random = popt_mean[keys(random)]
+
 
 @testset "gen_compute_indiv_rand" begin
     _compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)    
@@ -72,20 +75,29 @@ DataFrames.transform!(df,
 _extract_indiv = (u0, p) -> vcat(u0, p)[symbols_paropt(psets.indiv)]
 tmp = _extract_indiv(df.u0[1], df.p[1])
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_extract_indiv) => :indiv)
+tools1 = df.tool[1];
 
-_setuptools = (u0, p) -> setup_tools_scenario(:A; scenario, popt, system, u0, p);
-_setuptools(df.u0[1], df.p[1]);
+_setuptools = (u0, p) -> setup_tools_scenario(:A; scenario, popt, system, u0, p, random);
+_tools = _setuptools(df.u0[1], df.p[1]);
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
+get_paropt_labeled(tools1.pset, _tools.problem)
 
 @testset "simsols" begin
+    pset = df.tool[1].pset
     solver = AutoTsit5(Rodas5P())
     sim_sols_probs = gen_sim_sols_probs(; tools = df.tool, psets, solver)
     sols_probs = sim_sols_probs(fixed, random, hcat(df.indiv...), hcat(df.indiv_random...));
+    # recomputed sites ranef and set indiv, but used mean fixed parameters
+    probo = first(sols_probs).problem_opt
+    popt1 = get_paropt_labeled(pset, df.tool[1].problem; flatten1 = Val(true))
+    popt2 = get_paropt_labeled(pset, probo; flatten1 = Val(true))
+    @test popt2[keys(random)] == first(popt_sites)[keys(random)]
+    @test popt2[keys(indiv)] == first(popt_sites)[keys(indiv)]
+    @test popt2[keys(fixed)] == popt_mean[keys(fixed)] # first(popt_sites)[keys(fixed)]
     sol = first(sols_probs).sol;
-    solA0 = solve(toolsA.problem, solver) # same as with initial popt -> recomputed
-    #solA0 == sol # fixed is now on mean instead of p.A
-    #sol.t
-    #sol[sv.x]
+    @test all(sol[sv.x][1] .== p_sites.A.u0) # state only u0 all randomeffect
+    solA0 = solve(df.tool[1].problem, solver) 
+    #solA0 == sol # random and individual parameters for original problem at mean instead of site
 
     sim_sols = gen_sim_sols(; tools = df.tool, psets, solver, maxiters = 1e4)
     poptl = (;
@@ -96,5 +108,5 @@ DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
         )
     sols = sim_sols(poptl);
     sol2 = first(sols);
-    sol2 == sol
+    @test sol2 == sol
 end;
