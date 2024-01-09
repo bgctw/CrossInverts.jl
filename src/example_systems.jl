@@ -68,7 +68,7 @@ gen_site_data1 = () -> begin
     res  # copy from terminal and paste into get_sitedata
 end
 
-function get_sitedata(::Val{:CrossInverts_samplesystem1}, site, scenario)
+function get_sitedata(::Val{:CrossInverts_samplesystem1}, site; scenario)
     data = (A = (m1₊x1 = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [2.4778914737556788, 2.8814759312054585,
                     3.1123382362789704, 3.319855891619185],
@@ -99,7 +99,7 @@ function get_sitedata(::Val{:CrossInverts_samplesystem1}, site, scenario)
     data[site]
 end
 
-function get_priors_dict(::Val{:CrossInverts_samplesystem1}, site, scenario)
+function get_priors_dict(::Val{:CrossInverts_samplesystem1}, site; scenario)
     #using DataFrames, Tables, DistributionFits
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -152,7 +152,7 @@ gen_site_data_vec = () -> begin
     res  # copy from terminal and paste into get_sitedata
 end
 
-function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
+function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
                     [2.5453299001305467, 3.384460308262885],
@@ -200,7 +200,7 @@ function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
     data[site]
 end
 
-function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
+function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -217,7 +217,7 @@ function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site, scenario)
     dd
 end
 
-function get_priors_σ_dict(::Val{:CrossInverts_samplesystem_vec})
+function get_priors_σ_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
     d_exp = Distributions.AffineDistribution(1, 1, Exponential(2))
     dd = Dict([:sv₊τ, :sv₊i] .=> d_exp)
     dd[:sv₊x] = product_distribution(d_exp,d_exp)
