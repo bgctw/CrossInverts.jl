@@ -197,7 +197,7 @@ function extract_stream_obsmatrices(; tools, vars = (:obs,))
         tup_vars = map(vars) do var
             _data = hcat((ss[var] for ss in stream_sites)...)
             size(_data, 1) == nt ||
-                error("Expected variable $var in stream $sk to be of lenght(time)=$nt) " *
+                error("Expected variable $var in stream $sk to be of length(time)=$nt) " *
                       "but was $(size(_data,1))")
             _data
         end
