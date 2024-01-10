@@ -118,7 +118,7 @@ end
 function get_priors_random_dict(::Val{:CrossInverts_samplesystem1}; scenario)
     d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
     dd = Dict{Symbol, Distribution}([:m1₊x1,:m1₊x2,:m1₊i,:m1₊τ] .=> d_exp)
-    dd[:sv₊p] = product_distribution(d_exp, d_exp, d_exp)
+    dd[:m1₊p] = product_distribution(d_exp, d_exp, d_exp)
     dd
 end
 
@@ -147,7 +147,7 @@ function get_priors_random_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
     dd
 end
 
-function get_site_parameters(::Val{:CrossInverts_samplesystem1})
+function get_site_parameters(::Val{:CrossInverts_samplesystem_vec})
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
     scenario = :CrossInverts_samplesystem_vec

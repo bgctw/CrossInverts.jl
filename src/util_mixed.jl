@@ -100,8 +100,9 @@ function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_g
         kwargs_gen = kwargs_gen, 
         pset1 = tools[1].pset
         fLogger = fLogger #, psetci_u_PlantNP=psetci_u_PlantNP 
+        kwargs_indiv_default = fill((), n_indiv)
         #
-        (fixed, random, indiv, indiv_random; kwargs...) -> begin
+        (fixed, random, indiv, indiv_random; kwargs_indiv = kwargs_indiv_default, kwargs...) -> begin
             map(1:n_indiv) do i_indiv
                 problem_opt = problems_indiv[i_indiv] # no need to copy, in update_statepar 
                 problem_opt = @inferred remake(problem_opt, fixed, psets.fixed)
@@ -115,7 +116,7 @@ function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_g
                 #suppress does not work with MCMCThreads() sampling
                 #sol = @suppress solve(problem_opt, solver, maxiters = 1e4)
                 sol = with_logger(fLogger) do
-                    sol = solve(problem_opt, solver; kwargs_gen..., kwargs...)
+                    sol = solve(problem_opt, solver; kwargs_gen..., kwargs_indiv[i_indiv]..., kwargs...)
                 end
                 (; sol, problem_opt)
             end # map 1:n_indiv

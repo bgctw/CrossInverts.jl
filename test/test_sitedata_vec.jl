@@ -37,18 +37,26 @@ end;
     @test keys(priors) == reverse(keys(popt.par))
 end;
 
-@testset "setup_tools_scenario" begin
+@testset "setup_tools_scenario and setup_priors_pop" begin
     #popt = CA.ComponentVector(state = (sv₊x1=1.0, sv₊x2=1.0), par=(sv₊τ=1.0, sv₊i=1.0))
     popt = CA.ComponentVector(state = (sv₊x = [1.0, 1.0],),
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
     random = flatten1(popt)[(:sv₊x, :sv₊τ)]
-    res = setup_tools_scenario(:A; scenario, popt, system = sys, random);
+    indiv = flatten1(popt)[(:sv₊p,)] 
+    res = setup_tools_scenario(:A; scenario, popt, system = sys, keys_indiv = keys(indiv));
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
-    @test eltype(res.priors) <: Distribution
-    @test keys(res.priors) == (keys(popt.state)..., keys(popt.par)...)
-    @test eltype(res.priors_random) <: Distribution
-    @test keys(res.priors_random) == keys(random)
+    @test eltype(res.priors_indiv) <: Distribution
+    @test keys(res.priors_indiv) == keys(indiv)
     @test axis_paropt(res.pset) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
+    #
+    fixed = CA.ComponentVector{Float64}()
+    priors_pop = setup_priors_pop(keys(fixed), keys(random); scenario);
+    @test eltype(priors_pop.fixed) <: Distribution
+    @test keys(priors_pop.fixed) == keys(fixed)
+    @test eltype(priors_pop.random) <: Distribution
+    @test keys(priors_pop.random) == keys(random)
+    @test eltype(priors_pop.random_σstar) <: Distribution
+    @test keys(priors_pop.random_σstar) == keys(random)
 end;
