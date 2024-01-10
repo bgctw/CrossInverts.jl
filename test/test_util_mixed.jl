@@ -24,7 +24,9 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 
 toolsA = setup_tools_scenario(:A; scenario, popt, system, random);
 
-psets = setup_psets_fixed_random_indiv(system, popt, keys(fixed), keys(random))
+psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
+
+#priors = setup_priors(;system)
 
 @testset "setup_psets_fixed_random_indiv" begin
     @test all((:fixed, :random, :indiv) .∈ Ref(keys(psets)))

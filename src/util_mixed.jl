@@ -21,7 +21,7 @@ function gen_compute_indiv_rand(pset::AbstractProblemParSetter, random)
 end
 
 """
-    setup_psets_fixed_random_indiv(system, popt, fixed, random)
+    setup_psets_fixed_random_indiv(fixed, random; system, popt)
 
 Setup the ProblemParSetters for given system and parameter names.
 Assume, that parameters are fiven in flat format, i.e. not state and par labels.
@@ -33,7 +33,7 @@ The indiv parameters are the difference set between popt_names and the others.
 
 Returns a NamedTuple with `ODEProblemParSetter` for `fixed`, `random`, and `indiv` parameters.
 """
-function setup_psets_fixed_random_indiv(system, popt, keys_fixed, keys_random)
+function setup_psets_fixed_random_indiv(keys_fixed, keys_random; system, popt)
     fixed1 = intersect(keys(popt), keys_fixed)
     random1 = intersect(keys(popt), keys_random)
     indiv1 = setdiff(keys(popt), union(fixed1, random1))

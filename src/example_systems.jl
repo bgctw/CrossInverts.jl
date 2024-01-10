@@ -165,7 +165,7 @@ function get_site_parameters(::Val{:CrossInverts_samplesystem1})
     random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
     indiv = ComponentVector(sv₊i = _m[:sv₊i])
     popt = vcat_statesfirst(fixed, random, indiv; system)
-    psets = setup_psets_fixed_random_indiv(system, popt, keys(fixed), keys(random))
+    psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
     pset = ODEProblemParSetter(system, popt)
     problem = remake(problem, popt, pset)
 
