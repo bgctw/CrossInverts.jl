@@ -48,10 +48,10 @@ TODO describe
 function setup_tools_scenario(site; scenario, popt,
         system,
         sitedata = get_sitedata(Val(scenario.system), site; scenario),
-        tspan = (0, maximum(map(stream -> maximum(stream.t), sitedata))),
+        tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
         u0 = nothing,
         p = nothing,
-        random = ComponentVector(),
+        keys_indiv = NTuple{0,Symbol}(),
         )
         #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
@@ -76,13 +76,22 @@ function setup_tools_scenario(site; scenario, popt,
     #
     problemupdater = NullProblemUpdater()
     #
-    popt_l = label_paropt(pset, popt) # axis with split state and par
-    popt_flat = flatten1(popt_l)
-    priors = dict_to_cv(keys(popt_flat), priors_dict)
+    #popt_l = label_paropt(pset, popt) # axis with split state and par
+    #popt_flat = flatten1(popt_l)
+    priors_indiv = dict_to_cv(keys_indiv, priors_dict)
     #
+    (; pset, problemupdater, priors_indiv, problem, sitedata)
+end
+
+function setup_priors_pop(keys_fixed, keys_random; scenario)
+    priors_dict = get_priors_dict(Val(scenario.system), :unknown_site; scenario)
     priors_random_dict = get_priors_random_dict(Val(scenario.system); scenario)
-    priors_random = dict_to_cv(keys(random), priors_random_dict)
-    (; pset, problemupdater, priors, priors_random, problem, sitedata)
+    (;
+        fixed = dict_to_cv(keys_fixed, priors_dict),
+        random = dict_to_cv(keys_random, priors_dict),
+        random_σstar = dict_to_cv(keys_random, priors_random_dict),
+        # the indiv priors can be site-specific, they are setup in setup_tools_scenario
+    )
 end
 
 """
@@ -151,10 +160,48 @@ end
 Extract the ComponentVector(keys -> Distribution) from dict(:par => :dist)
 """
 function dict_to_cv(keys, dict::AbstractDict)
-    ComponentVector(;zip(keys, getindex.(Ref(dict), keys))... )
+    isempty(keys) ?
+    ComponentVector{eltype(values(dict))}() :
+    ComponentVector(; zip(keys, getindex.(Ref(dict), keys))...)
     # @chain dict begin
     #     filter(:par => ∈(keys), _)  # only those rows for keys
     #     ComponentVector(; zip(_.par, _.dist)...)
     #     getindex(_, keys)           # reorder 
     # end
+end
+
+"""
+    extract_stream_obsmatrices(;tools, vars=(:obs,))
+
+Extract matrices by stream from sitedata in tools.
+
+For each site, tools holds the observations of all streams in property sitedata.
+This function returns a ComponentVector for each stream.
+For each stream it reports subvections t, and matrix for vars where each column
+relates to one site.
+It checks that all sites report the same time, and that variables have the same
+length as the time column.
+"""
+function extract_stream_obsmatrices(; tools, vars = (:obs,))
+    obs = map(t -> t.sitedata, tools)
+    stream_names = keys(first(obs))
+    tup = map(stream_names) do sk
+        #sk = stream_names[1]
+        stream_sites = (obs_site[sk] for obs_site in obs)
+        #collect(stream_sites)
+        #ss = first(stream_sites)
+        ts = [ss.t for ss in stream_sites]
+        all(ts[2:end] .== Ref(ts[1])) ||
+            error("Expected equal time for stream $sk across individuals, but got $ts")
+        nt = length(ts[1])
+        tup_vars = map(vars) do var
+            _data = hcat((ss[var] for ss in stream_sites)...)
+            size(_data, 1) == nt ||
+                error("Expected variable $var in stream $sk to be of length(time)=$nt) " *
+                      "but was $(size(_data,1))")
+            _data
+        end
+        ComponentVector(; t = ts[1], zip(vars, tup_vars)...)
+    end
+    ComponentVector(; zip(stream_names, tup)...)
 end

@@ -27,8 +27,7 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 # popt = merge_subvectors(fixed, random, indiv; mkeys=(:state, :par))
 
 toolsA = setup_tools_scenario(:A; scenario, popt, system);
-psets = setup_psets_fixed_random_indiv(system, popt, keys(fixed), keys(random))
-
+psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 df_site_u0_p = DataFrame(
     site = [:A, :B, :C],
     u0 = fill((label_state(toolsA.pset, toolsA.problem.u0)), 3),  

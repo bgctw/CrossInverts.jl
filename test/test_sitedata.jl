@@ -41,11 +41,21 @@ end;
     #popt = CA.ComponentVector(state = (m1₊x1=1.0, m1₊x2=1.0), par=(m1₊τ=1.0, m1₊i=1.0))
     popt = CA.ComponentVector(state = (m1₊x1 = 1.0, m1₊x2 = 1.0),
         par = (m1₊τ = 1.0, m1₊p = fill(1.0, 3)))
-    res = setup_tools_scenario(:A; scenario, popt, system = sys)
+    indiv = flatten1(popt)[(:m1₊x1, :m1₊x2)]
+    res = setup_tools_scenario(:A; scenario, popt, system = sys, keys_indiv = keys(indiv))
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
-    @test eltype(res.priors) <: Distribution
-    @test keys(res.priors) == (keys(popt.state)..., keys(popt.par)...)
     @test axis_paropt(res.pset) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
+    #
+    fixed = CA.ComponentVector{Float64}()
+    random = flatten1(popt)[(:m1₊p,)]
+    priors_pop = setup_priors_pop(keys(fixed), keys(random); scenario);
+    @test eltype(priors_pop.fixed) <: Distribution
+    @test keys(priors_pop.fixed) == keys(fixed)
+    @test eltype(priors_pop.random) <: Distribution
+    @test keys(priors_pop.random) == keys(random)
+    @test eltype(priors_pop.random_σstar) <: Distribution
+    @test keys(priors_pop.random_σstar) == keys(random)
+
 end;

@@ -21,8 +21,8 @@ function sample_slc_cross(df_site_u0_p, targetlim, scenario;
     add_sitedata_obs_tools!(df, targetlim, scenario) # reflects u0 and p in tools.problem
     tools1 = first(df.tools)
     popt_names = symbols_paropt(tools1.psetci)
-    psets = setup_psets_fixed_random_indiv(tools1.system, popt_names, keys_opt_fixed,
-        keys_opt_random)
+    psets = setup_psets_fixed_random_indiv(keys_opt_fixed,
+    keys_opt_random; system = tools1.system, popt = missing ) #TODO #popt_names )
     popt0 = get_popt_from_tools(df.tools, psets)
     priors_opt = get_priors_opt_from_tools(df.tools, psets, priors_σ_dict)
     # function barrier so that all types are know inside
@@ -415,7 +415,7 @@ function add_obs_cross(chn::MCMCChains.Chains, var_obs;
     var_obs_keys = collect(first.(var_obs_pairs))
     #
     sites = keys(tools)
-    psets = setup_psets_fixed_random_indiv(first(tools).system, chn)
+    #TODO psets = setup_psets_fixed_random_indiv(first(tools).system, chn)
     pset_u0 = ODEProblemParSetter(first(tools).system, extract_u0_names(chn))
     sim_sols_probs = gen_sim_sols_probs(; tools, solver, psets)
     #
