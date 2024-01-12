@@ -49,8 +49,8 @@ end
 p_sites = CP.get_site_parameters(Val(scenario.system))
 df = DataFrame(
     site = collect(keys(p_sites)), 
-    u0 = collect(CP.map_keys(x -> x.u0, p_sites; rewrap = Val(false))),
-    p = collect(CP.map_keys(x -> x.p, p_sites; rewrap = Val(false))),
+    u0 = collect(map_keys(x -> x.u0, p_sites; rewrap = Val(false))),
+    p = collect(map_keys(x -> x.p, p_sites; rewrap = Val(false))),
 )
 
 popt_sites = get_paropt_labeled.(Ref(toolsA.pset), df.u0, df.p; flatten1=Val(true))

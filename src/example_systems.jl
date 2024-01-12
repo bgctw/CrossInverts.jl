@@ -303,12 +303,8 @@ sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
     data[site]
 end
 
-function map_keys(FUN, cv::ComponentVector; rewrap::Val{is_rewrap}=Val(true)) where is_rewrap
-    tup = map(keys(cv)) do k
-        FUN(cv[k])
-    end
-    is_rewrap ? ComponentVector(;zip(keys(cv),tup)...) : tup
-end
+
+
 
 
 
