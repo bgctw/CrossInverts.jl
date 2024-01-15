@@ -7,6 +7,8 @@ using DataFrames
 using ComponentArrays: ComponentArrays as CA
 using StableRNGs
 using Statistics
+using DistributionFits
+using PDMats: PDiagMat
 
 @named sv = CP.samplesystem_vec()
 @named system = embed_system(sv)
@@ -90,8 +92,7 @@ get_paropt_labeled(tools1.pset, _tools.problem)
     pset = df.tool[1].pset
     solver = AutoTsit5(Rodas5P())
     sim_sols_probs = gen_sim_sols_probs(; tools = df.tool, psets, solver)
-    sols_probs = sim_sols_probs(fixed, random, hcat(df.indiv...), hcat(df.indiv_random...);
-        saveat = [0,0.2,2]);
+    sols_probs = sim_sols_probs(fixed, random, hcat(df.indiv...), hcat(df.indiv_random...));
     (sol, problem_opt) = sols_probs[1];
     # recomputed sites ranef and set indiv, but used mean fixed parameters
     popt1 = get_paropt_labeled(pset, df.tool[1].problem; flatten1 = Val(true))
@@ -116,6 +117,8 @@ get_paropt_labeled(tools1.pset, _tools.problem)
         )
     sols = sim_sols(poptl);
     sol2 = first(sols);
+    @test sol2.t == sol.t
+    @test sol2[sv.x] == sol[sv.x]
     @test sol2 == sol
 end;
 
@@ -155,7 +158,8 @@ end;
     @test_throws (ErrorException) CP.extract_stream_obsmatrices(; tools = tools2, vars)
 end
 
-obs = CP.extract_stream_obsmatrices(;tools)
+#obs = CP.extract_stream_obsmatrices(;tools)
+obs = map(t -> t.sitedata, tools)
 stream = first(obs)
 model_cross = gen_model_cross(;
     tools=df.tool, priors_pop, psets, sim_sols_probs, scenario, solver)

@@ -205,3 +205,9 @@ function extract_stream_obsmatrices(; tools, vars = (:obs,))
     end
     ComponentVector(; zip(stream_names, tup)...)
 end
+
+"""
+Provide the type of distribution of observation uncertainty for given stream,
+    to be used with fit_mean_Σ.
+"""
+function get_obs_uncertainty_dist_type end

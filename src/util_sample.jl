@@ -6,7 +6,8 @@ function gen_model_cross(;
     end
     n_indiv = length(tools)
     sys_num_dict = get_system_symbol_dict(get_system(first(tools).problem))
-    obs = extract_stream_obsmatrices(;tools)
+    #obs = extract_stream_obsmatrices(;tools)
+    obs = map(t -> t.sitedata, tools)
    #
     gen_tmodel_cross = let pdf_deficit = Exponential(0.001),
         #prior_dist = prior_dist, 
@@ -18,10 +19,13 @@ function gen_model_cross(;
         priors_indiv = [t.priors_indiv for t in tools],
         sim_sols_probs = sim_sols_probs,
         obs = obs,
-        saveat = union(map_keys(stream -> stream.t, obs)),
-        stream_nums = ComponentVector(;
-            zip(keys(obs),
-                Symbolics.scalarize.(getindex.(Ref(sys_num_dict), keys(obs))))...)
+        # assume all sites/indiv have same streams
+        streams = keys(first(obs)),
+        dtypes = (;zip(streams, (get_obs_uncertainty_dist_type(Val(scenario.system), s; scenario) for s in streams))...)
+        #saveat = union(map_keys(stream -> stream.t, obs)),
+        stream_nums = (;
+            zip(streams,
+                Symbolics.scalarize.(getindex.(Ref(sys_num_dict), streams)))...)
 
         Turing.@model function tmodel_cross(obs, ::Type{T} = Float64) where {T}
             npfix = count_paropt(psets.fixed)
@@ -68,8 +72,11 @@ function gen_model_cross(;
                 random,
                 indiv,
                 indiv_random;
-                saveat = saveat)
+                #saveat = saveat)
+                )
+            #i_indiv = 1
             for i_indiv in 1:n_indiv
+                obsi = obs[i_indiv]
                 # not in 1.6 (; sol, problem_opt) = res_sim[i_indiv]
                 (sol, problem_opt) = res_sim[i_indiv]
                 #!is_dual && @show popt, sol.retcode
@@ -79,17 +86,14 @@ function gen_model_cross(;
                 end
                 local parl = label_par(psets.fixed, problem_opt.p) #@inferred label_par(psetci, problem_opt.p)
                 # for accessing solution at 100 time points need to store full solution
-                #   here (saveat) only the final solution was stored to save allocations
-                #stream = first(keys(obs))
                 for stream in keys(obs)
-                    obss = obs[stream]
+                    obss = obsi[stream]
                     pred = sol(obss.t; idxs=stream_nums[stream]).u
-                    (i,t) = first(enumerate(obss.t))
+                    #(i,t) = first(enumerate(obss.t))
                     for (i,t) in enumerate(obss.t)
                         pred_t = pred[i]
-                        # TODO #get_dist_obs(pred, obs[i_indiv])
-                        dist_preds = map(pred_i -> fit(LogNormal, pred_i, Σstar(1.1)), pred_t)
-                        dist_pred = length(pred_t) == 1 ? dist_preds : product_distribution(dist_preds)
+                        unc = obss.obs_unc[i]
+                        dist_pred = fit_mean_Σ(dtypes[s], pred_t, unc)
                         #tmp = rand(dist_pred)
                         obss[i] ~ dist_pred
                     end

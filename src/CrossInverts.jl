@@ -12,6 +12,7 @@ using Test: @inferred
 using Turing: Turing
 using MCMCChains: MCMCChains
 using Random, StableRNGs
+using PDMats: PDiagMat
 
 
 include("example_systems.jl")
@@ -23,6 +24,7 @@ export setup_psets_fixed_random_indiv, gen_sim_sols_probs, gen_sim_sols
 export setup_priors_pop
 export gen_compute_indiv_rand
 export sample_and_add_ranef
+export get_obs_uncertainty_dist_type
 include("util_mixed.jl")
 
 export gen_model_cross

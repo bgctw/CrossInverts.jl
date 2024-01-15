@@ -187,26 +187,46 @@ function get_site_parameters(::Val{:CrossInverts_samplesystem_vec})
 end
 
 
+"""
+Provide the type of distribution of observation uncertainty for given stream,
+    to be used with fit_mean_Σ.
+"""
+function get_obs_uncertainty_dist_type(::Val{:CrossInverts_samplesystem_vec}, stream; scenario)
+    dtypes = Dict{Symbol, Type}(
+        :sv₊dec2 => LogNormal,
+        :sv₊x => MvLogNormal,
+    )
+    dtypes[stream]
+end
+
+
 gen_site_data_vec = () -> begin
-    p_sites = get_site_parameters(Val(:CrossInverts_samplesystem1))
+    scenario = :CrossInverts_samplesystem_vec
+    p_sites = CP.get_site_parameters(Val(scenario))
     #using DistributionFits, StableRNGs, Statistics
     # other usings from test_util_mixed
     @named sv = CP.samplesystem_vec()
     @named system = embed_system(sv)
-    scenario = :CrossInverts_samplesystem_vec
     _dict_nums = get_system_symbol_dict(system)
     # setup a problem, numbers do not matter, because set below from prior mean
     t = [0.2, 0.4, 1.0, 2.0]
-    p_siteA = CA.ComponentVector(sv₊x = [1.1, 2.1], sv₊i = 4)
-    st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
-    p_new = Dict(sv.i .=> p_siteA.sv₊i)
+    p_siteA = p_sites.A 
+    st = p_siteA.u0
+    #st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
+    p_new = Dict(sv.i .=> p_siteA.p.sv₊i)
     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
-
     #site = first(keys(p_sites))
+    streams = (:sv₊x, :sv₊dec2)
+    dtypes = Dict(s => get_obs_uncertainty_dist_type(Val(scenario), s; scenario) for s in streams)
+    unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => PDiagMat(log.([1.1,1.1])))
+    d_noise = Dict(s => begin
+        unc = unc_par[s]
+        m = unc isa AbstractMatrix ? fill(1.0, size(unc,1)) : 1.0
+        fit_mean_Σ(dtypes[s], m, unc) 
+    end for s in streams)
+    # d_noise[:sv₊x]
     rng = StableRNG(123)
-    d_noise = Dict(:sv₊dec2 => fit(LogNormal, 1, Σstar(1.1)),
-        :sv₊x => product_distribution([fit(LogNormal, 1, Σstar(1.1)),
-            fit(LogNormal, 1, Σstar(1.1))]))
+    # site = first(keys(p_sites))
     obs_tuple = map(keys(p_sites)) do site
         #st = Dict(Symbolics.scalarize(sv.x .=> p_sites[site].u0.sv₊x))
         #p_new = Dict(sv.i .=> p_sites[site].sv₊i)
@@ -216,15 +236,16 @@ gen_site_data_vec = () -> begin
         sol = solve(probo, Tsit5(), saveat = t)
         #sol[[sv.x[1], sv.dec2]]
         #sol[_dict_nums[:sv₊dec2]]
-        streams = (:sv₊x, :sv₊dec2)
         #stream = last(streams) #stream = first(streams)
         tmp = map(streams) do stream
             obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
-            noise = rand(rng, d_noise[stream], length(obs_true))
+            n_obs = length(obs_true)
+            obs_unc = fill(unc_par[stream], n_obs)  # may be diffrent for each obs
+            noise = rand(rng, d_noise[stream], n_obs)
             obs = length(size(noise)) == 1 ?
                   obs = obs_true .+ noise :
                   obs = obs_true .+ eachcol(noise)
-            (; t, obs, obs_true)
+            (; t, obs, obs_unc, obs_true)
         end
         (; zip(streams, tmp)...)
     end
@@ -235,74 +256,103 @@ end
 
 function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
-    obs = [
-        [1.9521927604522915, 2.047517187862125],
-        [1.959751009453174, 2.1821024478735236],
-        [1.994686092440237, 2.255455473386112],
-        [2.2082422198908183, 2.2818243329314463],
-    ],
-    obs_true = [
-        [1.1107462105660761, 1.1132307256263168],
-        [1.1374030624789362, 1.1517682443665676],
-        [1.1662811048774226, 1.2254956639115882],
-        [1.1723596106288048, 1.2754477749552304],
-    ]),
-sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
-    obs = [
-        2.3735296942998776, 2.382273373816772,
-        2.341284913075192, 2.5324964004269113,
-    ],
-    obs_true = [
-        1.3025989791594734, 1.3476919966398768,
-        1.4339609606781936, 1.4924102716381489,
-    ])),
-B = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
-    obs = [
-        [2.1179381383169464, 2.1210382245945834],
-        [2.0822012511935855, 2.0674226074688833],
-        [2.1502642025499505, 2.306549239404262],
-        [2.1769831651053204, 2.2252801829256583],
-    ],
-    obs_true = [
-        [1.151651990792978, 1.1132958972995004],
-        [1.1625064462552526, 1.151819832008928],
-        [1.1747525567182713, 1.2255212968919122],
-        [1.1775878195616543, 1.2754555091009407],
-    ]),
-sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
-    obs = [
-        2.245788014365762, 2.277509740281726,
-        2.4334715751574127, 2.5137082813474017,
-    ],
-    obs_true = [
-        1.3026752369854613, 1.3477523596973535,
-        1.4339909540059328, 1.4924193214155894,
-    ])),
-C = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
-    obs = [
-        [2.0201527203706373, 2.073290144592896],
-        [2.3016809589613776, 2.2358258450652864],
-        [2.075680650697116, 2.104109424435813],
-        [2.1132474277961473, 2.2382429293126203],
-    ],
-    obs_true = [
-        [1.0937218361731353, 1.1239461365370844],
-        [1.1276412608646247, 1.1602478223825532],
-        [1.1645958587429655, 1.229697745239713],
-        [1.1724268272073743, 1.2767519138766517],
-    ]),
-sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
-    obs = [
-        2.2606131416433883, 2.3903847629996546,
-        2.340386125399106, 2.3963968314981225,
-    ],
-    obs_true = [
-        1.3151371556509526, 1.3576140095820832,
-        1.438877845132026, 1.493936253618901,
-    ])))
+                obs = [
+                    [2.0275948679676405, 2.2846639923962027],
+                    [1.7842789336214449, 2.0805372364458754],
+                    [2.092393487998817, 2.51497820774601],
+                    [1.9475052055463449, 2.0401167718843545],
+                ],
+                obs_unc = [[0.09531017980432493 0.0;
+                        0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493]],
+                obs_true = [
+                    [1.1107462105660761, 1.1132307256263168],
+                    [1.1374030624789362, 1.1517682443665676],
+                    [1.1662811048774226, 1.2254956639115882],
+                    [1.1723596106288048, 1.2754477749552304],
+                ]),
+            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    1.4910499737220133,
+                    1.4694637527792267,
+                    1.6158188934360207,
+                    1.5982127394156822,
+                ],
+                obs_unc = [1.1, 1.1, 1.1, 1.1],
+                obs_true = [
+                    1.3025989791594734,
+                    1.3476919966398768,
+                    1.4339609606781936,
+                    1.4924102716381489,
+                ])),
+        B = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    [1.7878914495255218, 2.3941886176710527],
+                    [2.9549503194333533, 2.7310549238893786],
+                    [2.3259814660317266, 2.3544460233904667],
+                    [2.0393725877635633, 2.0908352990694827],
+                ],
+                obs_unc = [[0.09531017980432493 0.0;
+                        0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493]],
+                obs_true = [
+                    [1.151651990792978, 1.1132958972995004],
+                    [1.1625064462552526, 1.151819832008928],
+                    [1.1747525567182713, 1.2255212968919122],
+                    [1.1775878195616543, 1.2754555091009407],
+                ]),
+            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    3.0251216726883907,
+                    1.5284285861011693,
+                    1.7336432112674052,
+                    2.6214812237491136,
+                ],
+                obs_unc = [1.1, 1.1, 1.1, 1.1],
+                obs_true = [
+                    1.3026752369854613,
+                    1.3477523596973535,
+                    1.4339909540059328,
+                    1.4924193214155894,
+                ])),
+        C = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    [1.8350702176355616, 1.8894285743818107],
+                    [1.9539128916619513, 1.852396055293947],
+                    [2.1408743696478636, 1.8504990396521535],
+                    [1.945593593771847, 1.713264714840722],
+                ],
+                obs_unc = [[0.09531017980432493 0.0;
+                        0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493]],
+                obs_true = [
+                    [1.0810227295857942, 1.07893746485692],
+                    [1.1064444715184476, 1.0795904809250938],
+                    [1.1323810742565483, 1.0807372211957795],
+                    [1.137221558052231, 1.0813915618203442],
+                ]),
+            sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
+                obs = [
+                    1.9344200864095762,
+                    1.898790749962489,
+                    5.962841895842549,
+                    3.4042330987378318,
+                ],
+                obs_unc = [1.1, 1.1, 1.1, 1.1],
+                obs_true = [
+                    1.514966636777468,
+                    1.5158835551242544,
+                    1.517493725600046,
+                    1.5184125037939566,
+                ])))
     data[site]
 end
-
 
 
 
