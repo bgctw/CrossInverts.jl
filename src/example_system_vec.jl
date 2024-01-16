@@ -149,7 +149,7 @@ gen_site_data_vec = () -> begin
         tmp = map(streams) do stream
             obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
             n_obs = length(obs_true)
-            obs_unc = fill(unc_par[stream], n_obs)  # may be diffrent for each obs
+            obs_unc = fill(unc_par[stream], n_obs)  # may be different for each obs
             noise = rand(rng, d_noise[stream], n_obs)
             obs = length(size(noise)) == 1 ?
                   obs = obs_true .+ noise :
