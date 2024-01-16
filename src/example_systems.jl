@@ -116,13 +116,22 @@ function get_priors_dict(::Val{:CrossInverts_samplesystem1}, site; scenario)
 end
 
 function get_priors_random_dict(::Val{:CrossInverts_samplesystem1}; scenario)
-    d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
+    #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
+    # prior in σ rather than σstar
+    d_exp = Exponential(log(1.05))
     dd = Dict{Symbol, Distribution}([:m1₊x1,:m1₊x2,:m1₊i,:m1₊τ] .=> d_exp)
     dd[:m1₊p] = product_distribution(d_exp, d_exp, d_exp)
     dd
 end
 
 #--------------------------- samplesystem_vec -------------------------
+function product_MvLogNormal(comp...)
+    μ = collect(getproperty.(comp, :μ))
+    σ = collect(getproperty.(comp, :σ))
+    Σ = PDiagMat(exp.(σ))
+    MvLogNormal(μ, Σ)
+end
+
 function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
@@ -135,15 +144,23 @@ function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
     dd = Dict{Symbol, Distribution}(df_scalars.par .=> df_scalars.dist)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
-    dd[:sv₊p] = product_distribution(fill(dist_p0, 3))
-    dd[:sv₊x] = product_distribution(dd[:sv₊x_1], dd[:sv₊x_2])
+    # dd[:sv₊p] = product_distribution(fill(dist_p0, 3))
+    # dd[:sv₊x] = product_distribution(dd[:sv₊x_1], dd[:sv₊x_2])
+    dd[:sv₊p] = product_MvLogNormal(fill(dist_p0, 3)...)
+    dd[:sv₊x] = product_MvLogNormal(dd[:sv₊x_1], dd[:sv₊x_2])
     dd
 end
 
 function get_priors_random_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
-    d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
+    #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
+    # prior in σ rather than σstar
+    d_exp = Exponential(log(1.05))
     dd = Dict{Symbol, Distribution}([:sv₊τ, :sv₊i] .=> d_exp)
-    dd[:sv₊x] = product_distribution(d_exp,d_exp)
+    # https://github.com/TuringLang/Bijectors.jl/issues/300
+    # dd[:sv₊x] = product_distribution(d_exp,d_exp)
+    dd[:sv₊x] = Distributions.Product(fill(d_exp,2))
+    # d_lognorm = fit(LogNormal, moments(d_exp))
+    # dd[:sv₊x] = product_MvLogNormal(d_lognorm,d_lognorm)
     dd
 end
 

@@ -9,6 +9,7 @@ using Distributions, DistributionFits
 using Chain
 using LoggingExtras
 using Test: @inferred
+using StaticArrays
 using Turing: Turing
 using MCMCChains: MCMCChains
 using Random, StableRNGs

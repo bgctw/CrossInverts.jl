@@ -57,6 +57,6 @@ end;
     @test keys(priors_pop.fixed) == keys(fixed)
     @test eltype(priors_pop.random) <: Distribution
     @test keys(priors_pop.random) == keys(random)
-    @test eltype(priors_pop.random_σstar) <: Distribution
-    @test keys(priors_pop.random_σstar) == keys(random)
+    @test eltype(priors_pop.random_σ) <: Distribution
+    @test keys(priors_pop.random_σ) == keys(random)
 end;

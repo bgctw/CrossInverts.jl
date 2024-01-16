@@ -11,7 +11,7 @@ mean, and the individual site parameters.
 function gen_compute_indiv_rand(pset::AbstractProblemParSetter, random) 
     let pset=pset, random=random
         compute_indiv_rand = (u0, p) -> begin
-            local popt = get_paropt_labeled(pset, u0, p; flatten1=Val(true))
+            local popt = get_paropt_labeled(pset, u0, p; flat1=Val(true))
             # k = first(keys(random))
             gen = (popt[k] ./ random[k] for k in keys(random))
             v = reduce(vcat, gen)
@@ -150,15 +150,13 @@ function sample_and_add_ranef(problem, priors_random::ComponentVector, rng::Abst
     #kp = first(keys(random))
     tup = map(keys_random) do kp
         dist_sigma = priors_random[kp]
-        #sigma_star_d = mean(dist_sigma)
-        sigma_star_d = rand(rng, dist_sigma)
+        #σ = mean(dist_sigma)
+        σ = rand(rng, dist_sigma)
         dim_d = length(dist_sigma)
-        # TODO instead of sampling independent fit Multivariate LogNormal with marginal
-        # expectations of 1
-        dist_scalar = map(sigma_star_d) do sigma_star
-            fit(LogNormal, 1, Σstar(sigma_star)) # Σstar
-        end
-        dist = dim_d == 1 ? dist_scalar : product_distribution(dist_scalar...)
+        len_σ = length(σ)
+        dist = (len_σ == 1) ?
+               fit_mean_Σ(LogNormal, 1, σ) :
+               fit_mean_Σ(MvLogNormal, fill(1, len_σ), PDiagMat(exp.(σ)))
         rand(rng, dist)
     end
     ranef = ComponentVector(;zip(keys_random, tup)...)

@@ -114,7 +114,7 @@ end;
     @test all(sort(names(chn, :fixed)) .== sort(collect(keys_opt_fixed)))
     @test all(sort(names(chn, :random)) .== sort(collect(keys_opt_random)))
     @test all([Symbol("σstar_$p") for p in keys_opt_random] .∈
-              Ref(names(chn, :random_σstar)))
+              Ref(names(chn, :random_σ)))
     par_names = symbols_paropt(tools1.psetci)
     psite_names = setdiff(par_names, union(keys_opt_fixed, keys_opt_random))
     nsite = length(sites)
@@ -175,7 +175,7 @@ end;
 end;
 
 tmpf = () -> begin
-    describe(MCMCChains.Chains(chn, [:random_σstar]))
-    chn2 = MCMCChains.Chains(chn, [:random_σstar])
+    describe(MCMCChains.Chains(chn, [:random_σ]))
+    chn2 = MCMCChains.Chains(chn, [:random_σ])
     describe(MCMCChains.get(chn, :lp).lp)
 end

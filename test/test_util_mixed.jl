@@ -31,10 +31,10 @@ psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 @testset "setup_psets_fixed_random_indiv" begin
     @test all((:fixed, :random, :indiv) .∈ Ref(keys(psets)))
     @test psets.fixed isa ODEProblemParSetter 
-    @test get_paropt_labeled(toolsA.pset, toolsA.problem; flatten1=Val(true)) == popt
-    @test get_paropt_labeled(psets.fixed, toolsA.problem; flatten1=Val(true)) == fixed
-    @test get_paropt_labeled(psets.random, toolsA.problem; flatten1=Val(true)) == random
-    @test get_paropt_labeled(psets.indiv, toolsA.problem; flatten1=Val(true)) == indiv
+    @test get_paropt_labeled(toolsA.pset, toolsA.problem; flat1=Val(true)) == popt
+    @test get_paropt_labeled(psets.fixed, toolsA.problem; flat1=Val(true)) == fixed
+    @test get_paropt_labeled(psets.random, toolsA.problem; flat1=Val(true)) == random
+    @test get_paropt_labeled(psets.indiv, toolsA.problem; flat1=Val(true)) == indiv
 end;
 
 priors_pop = setup_priors_pop(keys(fixed), keys(random); scenario);
@@ -55,7 +55,7 @@ df = DataFrame(
     p = collect(map_keys(x -> x.p, p_sites; rewrap = Val(false))),
 )
 
-popt_sites = get_paropt_labeled.(Ref(toolsA.pset), df.u0, df.p; flatten1=Val(true))
+popt_sites = get_paropt_labeled.(Ref(toolsA.pset), df.u0, df.p; flat1=Val(true))
 #getproperty.(popt_sites, :sv₊p)
 _tup = map(k -> mean(getproperty.(popt_sites, k)), keys(popt)) 
 popt = popt_mean = CA.ComponentVector(;zip(keys(popt), _tup)...)
@@ -88,15 +88,16 @@ tools1 = df.tool[1];
 tools = df.tool
 get_paropt_labeled(tools1.pset, _tools.problem)
 
+pset = df.tool[1].pset
+solver = AutoTsit5(Rodas5P())
+sim_sols_probs = gen_sim_sols_probs(; tools = df.tool, psets, solver)
+
 @testset "simsols" begin
-    pset = df.tool[1].pset
-    solver = AutoTsit5(Rodas5P())
-    sim_sols_probs = gen_sim_sols_probs(; tools = df.tool, psets, solver)
     sols_probs = sim_sols_probs(fixed, random, hcat(df.indiv...), hcat(df.indiv_random...));
     (sol, problem_opt) = sols_probs[1];
     # recomputed sites ranef and set indiv, but used mean fixed parameters
-    popt1 = get_paropt_labeled(pset, df.tool[1].problem; flatten1 = Val(true))
-    popt2 = get_paropt_labeled(pset, problem_opt; flatten1 = Val(true))
+    popt1 = get_paropt_labeled(pset, df.tool[1].problem; flat1 = Val(true))
+    popt2 = get_paropt_labeled(pset, problem_opt; flat1 = Val(true))
     @test popt2[keys(random)] == first(popt_sites)[keys(random)]
     @test popt2[keys(indiv)] == first(popt_sites)[keys(indiv)]
     @test popt2[keys(fixed)] == popt_mean[keys(fixed)] # first(popt_sites)[keys(fixed)]
@@ -122,45 +123,54 @@ get_paropt_labeled(tools1.pset, _tools.problem)
     @test sol2 == sol
 end;
 
-@testset "extract_stream_obsmatrices" begin
-    tools = df.tool
-    vars = (:obs, :obs_true)
-    obs = CP.extract_stream_obsmatrices(;tools, vars)
-    @test keys(obs) == (:sv₊x, :sv₊dec2) # streams
-    @test all( (keys(obs[k]) == (:t, vars...) for k in keys(obs)) ) # keys in each stream
-    #
-    # inconsistent times
-    tools2 = deepcopy(tools)
-    tools2[1].sitedata.sv₊x.t[1] = 0.222
-    @test_throws (ErrorException) CP.extract_stream_obsmatrices(;tools = tools2, vars)
-    #
-    # inconsistent length of observations
-    tools2 = deepcopy(tools)
-    tools2[1] = merge(tools2[1],
-        (;
-            sitedata = merge(tools2[1].sitedata,
-                (;
-                    sv₊x = merge(tools2[1].sitedata.sv₊x,
-                        (; obs = tools2[1].sitedata.sv₊x.obs[2:end]))))))
-    @test_throws (ErrorException) CP.extract_stream_obsmatrices(; tools = tools2, vars)
-    #
-    # consistent observations but inconsistent with time
-    tools2 = deepcopy(tools)
-    tools2_i = tools2[1]
-    tools2 = [merge(tools2_i,
-        (;
-            sitedata = merge(tools2_i.sitedata,
-                (;
-                    sv₊x = merge(tools2_i.sitedata.sv₊x,
-                        (; obs = tools2_i.sitedata.sv₊x.obs[2:end]))))))
-              for tools2_i in tools2]
-    #[t.sitedata.sv₊x.obs for t in tools2] # just to check that each site has only 3 obs
-    @test_throws (ErrorException) CP.extract_stream_obsmatrices(; tools = tools2, vars)
-end
+# @testset "extract_stream_obsmatrices" begin
+#     tools = df.tool
+#     vars = (:obs, :obs_true)
+#     obs = CP.extract_stream_obsmatrices(;tools, vars)
+#     @test keys(obs) == (:sv₊x, :sv₊dec2) # streams
+#     @test all( (keys(obs[k]) == (:t, vars...) for k in keys(obs)) ) # keys in each stream
+#     #
+#     # inconsistent times
+#     tools2 = deepcopy(tools)
+#     tools2[1].sitedata.sv₊x.t[1] = 0.222
+#     @test_throws (ErrorException) CP.extract_stream_obsmatrices(;tools = tools2, vars)
+#     #
+#     # inconsistent length of observations
+#     tools2 = deepcopy(tools)
+#     tools2[1] = merge(tools2[1],
+#         (;
+#             sitedata = merge(tools2[1].sitedata,
+#                 (;
+#                     sv₊x = merge(tools2[1].sitedata.sv₊x,
+#                         (; obs = tools2[1].sitedata.sv₊x.obs[2:end]))))))
+#     @test_throws (ErrorException) CP.extract_stream_obsmatrices(; tools = tools2, vars)
+#     #
+#     # consistent observations but inconsistent with time
+#     tools2 = deepcopy(tools)
+#     tools2_i = tools2[1]
+#     tools2 = [merge(tools2_i,
+#         (;
+#             sitedata = merge(tools2_i.sitedata,
+#                 (;
+#                     sv₊x = merge(tools2_i.sitedata.sv₊x,
+#                         (; obs = tools2_i.sitedata.sv₊x.obs[2:end]))))))
+#               for tools2_i in tools2]
+#     #[t.sitedata.sv₊x.obs for t in tools2] # just to check that each site has only 3 obs
+#     @test_throws (ErrorException) CP.extract_stream_obsmatrices(; tools = tools2, vars)
+# end
+
+
+using Turing
+n_burnin = 0
+n_sample = 10
 
 #obs = CP.extract_stream_obsmatrices(;tools)
 obs = map(t -> t.sitedata, tools)
+obs_site_stream = obs[1][1]
+obs_obs = map(obs) do obs_site
+    map(obs_site_stream -> obs_site_stream.obs, obs_site) 
+end
 stream = first(obs)
 model_cross = gen_model_cross(;
-    tools=df.tool, priors_pop, psets, sim_sols_probs, scenario, solver)
-#tmp = model_cross(obs)
+    tools=df.tool, priors_pop, psets, sim_sols_probs, scenario, solver);
+chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 1e-2), n_sample, init_params = collect(popt))

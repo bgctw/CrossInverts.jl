@@ -89,7 +89,7 @@ function setup_priors_pop(keys_fixed, keys_random; scenario)
     (;
         fixed = dict_to_cv(keys_fixed, priors_dict),
         random = dict_to_cv(keys_random, priors_dict),
-        random_σstar = dict_to_cv(keys_random, priors_random_dict),
+        random_σ = dict_to_cv(keys_random, priors_random_dict),
         # the indiv priors can be site-specific, they are setup in setup_tools_scenario
     )
 end
@@ -170,41 +170,41 @@ function dict_to_cv(keys, dict::AbstractDict)
     # end
 end
 
-"""
-    extract_stream_obsmatrices(;tools, vars=(:obs,))
+# """
+#     extract_stream_obsmatrices(;tools, vars=(:obs,))
 
-Extract matrices by stream from sitedata in tools.
+# Extract matrices by stream from sitedata in tools.
 
-For each site, tools holds the observations of all streams in property sitedata.
-This function returns a ComponentVector for each stream.
-For each stream it reports subvections t, and matrix for vars where each column
-relates to one site.
-It checks that all sites report the same time, and that variables have the same
-length as the time column.
-"""
-function extract_stream_obsmatrices(; tools, vars = (:obs,))
-    obs = map(t -> t.sitedata, tools)
-    stream_names = keys(first(obs))
-    tup = map(stream_names) do sk
-        #sk = stream_names[1]
-        stream_sites = (obs_site[sk] for obs_site in obs)
-        #collect(stream_sites)
-        #ss = first(stream_sites)
-        ts = [ss.t for ss in stream_sites]
-        all(ts[2:end] .== Ref(ts[1])) ||
-            error("Expected equal time for stream $sk across individuals, but got $ts")
-        nt = length(ts[1])
-        tup_vars = map(vars) do var
-            _data = hcat((ss[var] for ss in stream_sites)...)
-            size(_data, 1) == nt ||
-                error("Expected variable $var in stream $sk to be of length(time)=$nt) " *
-                      "but was $(size(_data,1))")
-            _data
-        end
-        ComponentVector(; t = ts[1], zip(vars, tup_vars)...)
-    end
-    ComponentVector(; zip(stream_names, tup)...)
-end
+# For each site, tools holds the observations of all streams in property sitedata.
+# This function returns a ComponentVector for each stream.
+# For each stream it reports subvections t, and matrix for vars where each column
+# relates to one site.
+# It checks that all sites report the same time, and that variables have the same
+# length as the time column.
+# """
+# function extract_stream_obsmatrices(; tools, vars = (:obs,))
+#     obs = map(t -> t.sitedata, tools)
+#     stream_names = keys(first(obs))
+#     tup = map(stream_names) do sk
+#         #sk = stream_names[1]
+#         stream_sites = (obs_site[sk] for obs_site in obs)
+#         #collect(stream_sites)
+#         #ss = first(stream_sites)
+#         ts = [ss.t for ss in stream_sites]
+#         all(ts[2:end] .== Ref(ts[1])) ||
+#             error("Expected equal time for stream $sk across individuals, but got $ts")
+#         nt = length(ts[1])
+#         tup_vars = map(vars) do var
+#             _data = hcat((ss[var] for ss in stream_sites)...)
+#             size(_data, 1) == nt ||
+#                 error("Expected variable $var in stream $sk to be of length(time)=$nt) " *
+#                       "but was $(size(_data,1))")
+#             _data
+#         end
+#         ComponentVector(; t = ts[1], zip(vars, tup_vars)...)
+#     end
+#     ComponentVector(; zip(stream_names, tup)...)
+# end
 
 """
 Provide the type of distribution of observation uncertainty for given stream,
