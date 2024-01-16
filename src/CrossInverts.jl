@@ -15,11 +15,15 @@ using MCMCChains: MCMCChains
 using Random, StableRNGs
 using PDMats: PDiagMat
 
-
-include("example_systems.jl")
-
 export setup_tools_scenario, get_sitedata, get_priors_dict, dict_to_cv
+export AbstractCrossInversionCase
 include("site_data.jl")
+
+export SampleSystem1Case
+include("example_system1.jl")
+
+export SampleSystemVecCase
+include("example_system_vec.jl")
 
 export setup_psets_fixed_random_indiv, gen_sim_sols_probs, gen_sim_sols
 export setup_priors_pop

@@ -1,5 +1,6 @@
 function gen_model_cross(;
-        tools, priors_pop, sim_sols_probs, scenario, psets, solver)
+        inv_case::AbstractCrossInversionCase, tools, priors_pop, sim_sols_probs, 
+        scenario, psets, solver)
     fLogger = EarlyFilteredLogger(current_logger()) do log
         #@show log
         !(log.level == Logging.Warn && log.group == :integrator_interface)
@@ -24,7 +25,7 @@ function gen_model_cross(;
         obs = obs,
         # assume all sites/indiv have same streams
         streams = keys(first(obs)),
-        dtypes = (;zip(streams, (get_obs_uncertainty_dist_type(Val(scenario.system), s; scenario) for s in streams))...)
+        dtypes = (;zip(streams, (get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams))...)
         #saveat = union(map_keys(stream -> stream.t, obs)),
         stream_nums = (;
             zip(streams,

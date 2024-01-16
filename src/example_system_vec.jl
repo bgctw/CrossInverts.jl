@@ -1,3 +1,5 @@
+struct SampleSystemVecCase <: AbstractCrossInversionCase end
+
 function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     n_comp = 2
     @parameters t
@@ -19,112 +21,6 @@ function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     return sys
 end
 
-function samplesystem1(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
-    @parameters t
-    D = Differential(t)
-    @variables x1(..) x2(..) dec2(..) #dx(t)[1:2]  # observed dx now can be accessed
-    ps = @parameters τ=τ i=i p[1:3]=p
-    sts = [x1(t), x2(t), dec2(t)]
-    eq = [
-        D(x1(t)) ~ i - p[1] * x1(t) + (p[2] - x1(t)^2) / τ,
-        D(x2(t)) ~ i - dec2(t),
-        dec2(t) ~ p[3] * x2(t), # observable
-    ]
-    #ODESystem(eq, t; name)
-    #ODESystem(eq, t, sts, [τ, p[1], p[2], i]; name)
-    sys = ODESystem(eq, t, sts, vcat(ps...); name)
-    #sys = ODESystem(eq, t, sts, ps; name)
-    return sys
-end
-
-gen_site_data1 = () -> begin
-    @named m1 = CP.samplesystem1()
-    @named system = embed_system(m1)
-    _dict_nums = get_system_symbol_dict(system)
-    t = [0.2, 0.4, 1.0, 2.0]
-    p_sites = ComponentVector(A = (m1₊x1 = 1.0, m1₊i = 4),
-        B = (m1₊x1 = 1.2, m1₊i = 0.2))
-    site = first(keys(p_sites))
-    d_noise = fit(LogNormal, 1, Σstar(1.1))
-    rng = StableRNG(123)
-    obs_tuple = map(keys(p_sites)) do site
-        st = Dict(m1.x1 .=> p_sites[site].m1₊x1, m1.x2 .=> 1.0)
-        p_new = Dict(m1.i .=> p_sites[site].m1₊i)
-        prob = ODEProblem(system, st, (0.0, 2.0), p_new)
-        sol = solve(prob, Tsit5(), saveat = t)
-        #sol[[m1.x[1], m1.dec2]]
-        #sol[_dict_nums[:m1₊dec2]]
-        streams = (:m1₊x1, :m1₊dec2)
-        #stream = last(streams)
-        tmp = map(streams) do stream
-            obs_true = sol[_dict_nums[stream]]
-            obs = obs_true .+ rand(rng, d_noise, length(obs_true))
-            (; t, obs, obs_true)
-        end
-        (; zip(streams, tmp)...)
-    end
-    res = (; zip(keys(p_sites), obs_tuple)...)
-    #clipboard(res) # not on slurm
-    res  # copy from terminal and paste into get_sitedata
-end
-
-function get_sitedata(::Val{:CrossInverts_samplesystem1}, site; scenario)
-    data = (A = (m1₊x1 = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [2.4778914737556788, 2.8814759312054585,
-                    3.1123382362789704, 3.319855891619185],
-                obs_true = [
-                    1.4943848813734615, 1.820680609257418,
-                    2.229232180845057, 2.3324192686165475]),
-            m1₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [
-                    2.9047245048321093, 3.487504088523498,
-                    4.197993507626974, 4.729373001342233],
-                obs_true = [
-                    1.9181607097808226, 2.3947945842556075,
-                    3.2641654938821785, 3.7994598198758065])),
-        B = (m1₊x1 = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [
-                    1.9072519083605397, 1.7328631403357329,
-                    1.5368649796139198, 1.3767309450998682],
-                obs_true = [
-                    0.999447003144777, 0.8587653506110787,
-                    0.6318569175937196, 0.5132152408929866]),
-            m1₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
-                obs = [
-                    1.9267541330053009, 1.944429448795812,
-                    1.709438971641723, 1.4449765000568517],
-                obs_true = [
-                    1.0481566696163267, 0.8539723454282818,
-                    0.49978412872575745, 0.28170241145399255])))
-    data[site]
-end
-
-function get_priors_dict(::Val{:CrossInverts_samplesystem1}, site; scenario)
-    #using DataFrames, Tables, DistributionFits
-    paramsModeUpperRows = [
-        # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
-        (:m1₊x1, LogNormal, 1.0, 2.0),
-        (:m1₊x2, LogNormal, 1.0, 2.0),
-        (:m1₊i, LogNormal, 1.0, 6.0),
-        (:m1₊τ, LogNormal, 1.0, 5.0),
-    ]
-    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
-    dd = Dict{Symbol, Distribution}(df_scalars.par .=> df_scalars.dist)
-    dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
-    dd[:m1₊p] = product_distribution(fill(dist_p0, 3))
-    dd
-end
-
-function get_priors_random_dict(::Val{:CrossInverts_samplesystem1}; scenario)
-    #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
-    # prior in σ rather than σstar
-    d_exp = Exponential(log(1.05))
-    dd = Dict{Symbol, Distribution}([:m1₊x1,:m1₊x2,:m1₊i,:m1₊τ] .=> d_exp)
-    dd[:m1₊p] = product_distribution(d_exp, d_exp, d_exp)
-    dd
-end
-
-#--------------------------- samplesystem_vec -------------------------
 function product_MvLogNormal(comp...)
     μ = collect(getproperty.(comp, :μ))
     σ = collect(getproperty.(comp, :σ))
@@ -132,7 +28,7 @@ function product_MvLogNormal(comp...)
     MvLogNormal(μ, Σ)
 end
 
-function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
+function get_priors_dict(::SampleSystemVecCase, site; scenario = NTuple{0,Symbol}())
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -151,7 +47,7 @@ function get_priors_dict(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
     dd
 end
 
-function get_priors_random_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
+function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0,Symbol}())
     #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
     # prior in σ rather than σstar
     d_exp = Exponential(log(1.05))
@@ -164,10 +60,9 @@ function get_priors_random_dict(::Val{:CrossInverts_samplesystem_vec}; scenario)
     dd
 end
 
-function get_site_parameters(::Val{:CrossInverts_samplesystem_vec})
+function get_site_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0,Symbol}())
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
-    scenario = :CrossInverts_samplesystem_vec
     #_dict_nums = get_system_symbol_dict(system)
     # setup a problem, numbers do not matter, because set below from prior mean
     t = [0.2, 0.4, 1.0, 2.0]
@@ -176,7 +71,7 @@ function get_site_parameters(::Val{:CrossInverts_samplesystem_vec})
     p_new = Dict(sv.i .=> p_siteA.sv₊i)
     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
 
-    priors_dict = get_priors_dict(Val(scenario), :A; scenario=nothing)
+    priors_dict = get_priors_dict(inv_case, :A; scenario)
     _m = Dict(k => mean(v) for (k,v) in priors_dict)
     fixed = ComponentVector(sv₊p = _m[:sv₊p])
     random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
@@ -190,7 +85,7 @@ function get_site_parameters(::Val{:CrossInverts_samplesystem_vec})
         p = label_par(pset, problem.p))
     # multiply random effects for sites B and C
     priors_random = dict_to_cv(keys(random), get_priors_random_dict(
-        Val(scenario); scenario=nothing))
+        inv_case; scenario))
     rng = StableRNG(234)
     _get_u0p_ranef = () -> begin
         probo = sample_and_add_ranef(problem, priors_random, rng; psets)
@@ -203,12 +98,8 @@ function get_site_parameters(::Val{:CrossInverts_samplesystem_vec})
     p_sites
 end
 
-
-"""
-Provide the type of distribution of observation uncertainty for given stream,
-    to be used with fit_mean_Σ.
-"""
-function get_obs_uncertainty_dist_type(::Val{:CrossInverts_samplesystem_vec}, stream; scenario)
+function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream; 
+    scenario = NTuple{0,Symbol}())
     dtypes = Dict{Symbol, Type}(
         :sv₊dec2 => LogNormal,
         :sv₊x => MvLogNormal,
@@ -218,8 +109,9 @@ end
 
 
 gen_site_data_vec = () -> begin
-    scenario = :CrossInverts_samplesystem_vec
-    p_sites = CP.get_site_parameters(Val(scenario))
+    inv_case = SampleSystemVecCase()
+    scenario = NTuple{0,Symbol}()
+    p_sites = CP.get_site_parameters(inv_case)
     #using DistributionFits, StableRNGs, Statistics
     # other usings from test_util_mixed
     @named sv = CP.samplesystem_vec()
@@ -234,7 +126,7 @@ gen_site_data_vec = () -> begin
     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
     #site = first(keys(p_sites))
     streams = (:sv₊x, :sv₊dec2)
-    dtypes = Dict(s => get_obs_uncertainty_dist_type(Val(scenario), s; scenario) for s in streams)
+    dtypes = Dict(s => get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams)
     unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => PDiagMat(log.([1.1,1.1])))
     d_noise = Dict(s => begin
         unc = unc_par[s]
@@ -271,7 +163,7 @@ gen_site_data_vec = () -> begin
     res  # copy from terminal and paste into get_sitedata
 end
 
-function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
+function get_sitedata(::SampleSystemVecCase, site; scenario = NTuple{0,Symbol}())
     data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
                     [2.0275948679676405, 2.2846639923962027],
@@ -370,9 +262,3 @@ function get_sitedata(::Val{:CrossInverts_samplesystem_vec}, site; scenario)
                 ])))
     data[site]
 end
-
-
-
-
-
-

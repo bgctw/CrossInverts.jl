@@ -43,11 +43,31 @@
 # end
 
 """
+    AbstractCrossInversionCase
+
+Interface for providing all relevant information for a cross-individual
+mixed effects bayesian inversion.
+
+Concrete types should implement
+- `get_priors_dict(::AbstractCrossInversionCase, site; scenario)`
+  Priors for model parameters in fixed, random, and indiv effects. 
+- `get_priors_random_dict(::AbstractCrossInversionCase; scenario)`
+  Priors for meta-parameters for random effects.
+- `get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)`
+  Type of distribution of observation-uncertainty per stream.
+- `get_sitedata(::AbstractCrossInversionCase, site; scenario)`
+  The times, observations, and uncertainty parameters per site and stream.
+"""
+abstract type AbstractCrossInversionCase end
+
+
+"""
 TODO describe
 """
-function setup_tools_scenario(site; scenario, popt,
+function setup_tools_scenario(site;     
+        inv_case::AbstractCrossInversionCase, scenario, popt,
         system,
-        sitedata = get_sitedata(Val(scenario.system), site; scenario),
+        sitedata = get_sitedata(inv_case, site; scenario),
         tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
         u0 = nothing,
         p = nothing,
@@ -55,7 +75,7 @@ function setup_tools_scenario(site; scenario, popt,
         )
         #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
-    priors_dict = get_priors_dict(Val(scenario.system), site; scenario)
+    priors_dict = get_priors_dict(inv_case, site; scenario)
     # default u0 and p from expected value of priors
     if isnothing(u0)
         priors_u0 = dict_to_cv(unique(symbol_op.(states(system))), priors_dict)
@@ -83,9 +103,10 @@ function setup_tools_scenario(site; scenario, popt,
     (; pset, problemupdater, priors_indiv, problem, sitedata)
 end
 
-function setup_priors_pop(keys_fixed, keys_random; scenario)
-    priors_dict = get_priors_dict(Val(scenario.system), :unknown_site; scenario)
-    priors_random_dict = get_priors_random_dict(Val(scenario.system); scenario)
+function setup_priors_pop(keys_fixed, keys_random;  
+    inv_case::AbstractCrossInversionCase, scenario)
+    priors_dict = get_priors_dict(inv_case, :unknown_site; scenario)
+    priors_random_dict = get_priors_random_dict(inv_case; scenario)
     (;
         fixed = dict_to_cv(keys_fixed, priors_dict),
         random = dict_to_cv(keys_random, priors_dict),
@@ -110,7 +131,7 @@ meandist2componentarray = function (priors)
 end
 
 """
-    get_sitedata(ValueType, site, scenario)
+    get_sitedata(::AbstractCrossInversionCase, site; scenario)
 
 Provide Tuple `(site -> (stream_info)` for each site.
 Where StreamInfo is a Tuple `(streamsymbol -> (;t, obs, obs_true))`.
@@ -125,14 +146,14 @@ am implementation for `Val(:CrossInverts_samplesystem1)` independent of scenario
 function get_sitedata end
 
 """
-    get_priors_dict(ValueType, site; scenario)
+    get_priors_dict(::AbstractCrossInversionCase, site; scenario)
 
 Provide a dictionary (par -> Distribution) for prior parameters and states.
 """
 function get_priors_dict end
 
 """
-    get_priors_random_dict(ValueType; scenario)
+    get_priors_random_dict(::AbstractCrossInversionCase; scenario)
 
 Provide a dictionary (par -> Distribution) for prior parameters and states.
 """
@@ -207,6 +228,9 @@ end
 # end
 
 """
+
+    get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)
+
 Provide the type of distribution of observation uncertainty for given stream,
     to be used with fit_mean_Σ.
 """

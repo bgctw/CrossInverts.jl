@@ -12,7 +12,8 @@ using PDMats: PDiagMat
 
 @named sv = CP.samplesystem_vec()
 @named system = embed_system(sv)
-scenario = (system = :CrossInverts_samplesystem_vec,)
+inv_case = SampleSystemVecCase()
+scenario = NTuple{0,Symbol}()
 
 fixed = CA.ComponentVector(sv₊p = 1:3)
 random = CA.ComponentVector(sv₊x = [2.1,2.2], sv₊τ = 0.1)
@@ -24,7 +25,7 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 # indiv = CA.ComponentVector(par=(sv₊i = 0.2,))
 # popt = merge_subvectors(fixed, random, indiv; mkeys=(:state, :par))
 
-toolsA = setup_tools_scenario(:A; scenario, popt, system, keys_indiv = keys(indiv));
+toolsA = setup_tools_scenario(:A; inv_case, scenario, popt, system, keys_indiv = keys(indiv));
 
 psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 
@@ -37,18 +38,9 @@ psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
     @test get_paropt_labeled(psets.indiv, toolsA.problem; flat1=Val(true)) == indiv
 end;
 
-priors_pop = setup_priors_pop(keys(fixed), keys(random); scenario);
+priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario);
 
-tmpf = () -> begin
-    #using DistributionFits
-    #using StatsPlots
-    problem = toolsA.problem
-    priors_random = toolsA.priors_random
-    plot(dist); vline!([1.0])
-    rand(dist, 2)
-end
-
-p_sites = CP.get_site_parameters(Val(scenario.system))
+p_sites = CP.get_site_parameters(inv_case)
 df = DataFrame(
     site = collect(keys(p_sites)), 
     u0 = collect(map_keys(x -> x.u0, p_sites; rewrap = Val(false))),
@@ -79,7 +71,7 @@ _extract_indiv = (u0, p) -> vcat(u0, p)[symbols_paropt(psets.indiv)]
 tmp = _extract_indiv(df.u0[1], df.p[1])
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_extract_indiv) => :indiv)
 
-_setuptools = (u0, p) -> setup_tools_scenario(:A; scenario, popt, system, u0, p, 
+_setuptools = (u0, p) -> setup_tools_scenario(:A; inv_case, scenario, popt, system, u0, p, 
     keys_indiv = keys(indiv));
 _tools = _setuptools(df.u0[1], df.p[1]);
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
@@ -164,13 +156,6 @@ using Turing
 n_burnin = 0
 n_sample = 10
 
-#obs = CP.extract_stream_obsmatrices(;tools)
-obs = map(t -> t.sitedata, tools)
-obs_site_stream = obs[1][1]
-obs_obs = map(obs) do obs_site
-    map(obs_site_stream -> obs_site_stream.obs, obs_site) 
-end
-stream = first(obs)
-model_cross = gen_model_cross(;
-    tools=df.tool, priors_pop, psets, sim_sols_probs, scenario, solver);
+model_cross = gen_model_cross(; 
+    inv_case, tools=df.tool, priors_pop, psets, sim_sols_probs, scenario, solver);
 chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 1e-2), n_sample, init_params = collect(popt))
