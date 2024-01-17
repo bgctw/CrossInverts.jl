@@ -106,6 +106,7 @@ function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_g
             map(1:n_indiv) do i_indiv
                 problem_opt = problems_indiv[i_indiv] # no need to copy, in update_statepar 
                 problem_opt = @inferred remake(problem_opt, fixed, psets.fixed)
+                Main.@infiltrate_main
                 problem_opt = remake(problem_opt,
                     random .* indiv_random[:, i_indiv], psets.random)
                 problem_opt = remake(problem_opt, indiv[:, i_indiv], psets.indiv)

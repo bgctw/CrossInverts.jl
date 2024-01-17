@@ -15,17 +15,22 @@ using PDMats: PDiagMat
 inv_case = SampleSystemVecCase()
 scenario = NTuple{0,Symbol}()
 
+p_sites = CP.get_site_parameters(inv_case)
+n_indiv = length(keys(p_sites))
+
+# need to put entire ComponentVectors to provide the sizes
+# the values will be overidden below
 fixed = CA.ComponentVector(sv₊p = 1:3)
 random = CA.ComponentVector(sv₊x = [2.1,2.2], sv₊τ = 0.1)
-indiv = CA.ComponentVector(sv₊i = 0.2)
-popt = vcat_statesfirst(fixed, random, indiv; system)
+indiv_mean = CA.ComponentVector(sv₊i = 0.2)
+popt = vcat_statesfirst(fixed, random, indiv_mean; system)
 
 # fixed = CA.ComponentVector(par=(sv₊p = 1:3,))
 # random = CA.ComponentVector(state=(sv₊x = [2.1,2.2],), par=(sv₊τ = 0.1,))
-# indiv = CA.ComponentVector(par=(sv₊i = 0.2,))
-# popt = merge_subvectors(fixed, random, indiv; mkeys=(:state, :par))
+# indiv_mean = CA.ComponentVector(par=(sv₊i = 0.2,))
+# popt = merge_subvectors(fixed, random, indiv_mean; mkeys=(:state, :par))
 
-toolsA = setup_tools_scenario(:A; inv_case, scenario, popt, system, keys_indiv = keys(indiv));
+toolsA = setup_tools_scenario(:A; inv_case, scenario, popt, system, keys_indiv = keys(indiv_mean));
 
 psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 
@@ -35,12 +40,11 @@ psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
     @test get_paropt_labeled(toolsA.pset, toolsA.problem; flat1=Val(true)) == popt
     @test get_paropt_labeled(psets.fixed, toolsA.problem; flat1=Val(true)) == fixed
     @test get_paropt_labeled(psets.random, toolsA.problem; flat1=Val(true)) == random
-    @test get_paropt_labeled(psets.indiv, toolsA.problem; flat1=Val(true)) == indiv
+    @test get_paropt_labeled(psets.indiv, toolsA.problem; flat1=Val(true)) == indiv_mean
 end;
 
 priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario);
 
-p_sites = CP.get_site_parameters(inv_case)
 df = DataFrame(
     site = collect(keys(p_sites)), 
     u0 = collect(map_keys(x -> x.u0, p_sites; rewrap = Val(false))),
@@ -53,6 +57,12 @@ _tup = map(k -> mean(getproperty.(popt_sites, k)), keys(popt))
 popt = popt_mean = CA.ComponentVector(;zip(keys(popt), _tup)...)
 fixed = popt_mean[keys(fixed)]
 random = popt_mean[keys(random)]
+indiv = CA.ComponentMatrix(
+    hcat((popt[keys(indiv_mean)] for popt in popt_sites)...),
+    axis_paropt_flat1(psets.indiv), CA.Axis(df.site)
+)
+indiv_mean = popt_mean[keys(indiv_mean)]
+
 
 
 @testset "gen_compute_indiv_rand" begin
@@ -72,7 +82,7 @@ tmp = _extract_indiv(df.u0[1], df.p[1])
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_extract_indiv) => :indiv)
 
 _setuptools = (u0, p) -> setup_tools_scenario(:A; inv_case, scenario, popt, system, u0, p, 
-    keys_indiv = keys(indiv));
+    keys_indiv = keys(indiv_mean));
 _tools = _setuptools(df.u0[1], df.p[1]);
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
 
@@ -91,7 +101,7 @@ sim_sols_probs = gen_sim_sols_probs(; tools = df.tool, psets, solver)
     popt1 = get_paropt_labeled(pset, df.tool[1].problem; flat1 = Val(true))
     popt2 = get_paropt_labeled(pset, problem_opt; flat1 = Val(true))
     @test popt2[keys(random)] == first(popt_sites)[keys(random)]
-    @test popt2[keys(indiv)] == first(popt_sites)[keys(indiv)]
+    @test popt2[keys(indiv_mean)] == first(popt_sites)[keys(indiv_mean)]
     @test popt2[keys(fixed)] == popt_mean[keys(fixed)] # first(popt_sites)[keys(fixed)]
     sol = first(sols_probs).sol;
     @test all(sol[sv.x][1] .== p_sites.A.u0) # state only u0 all randomeffect
@@ -156,6 +166,22 @@ using Turing
 n_burnin = 0
 n_sample = 10
 
+using Logging, LoggingExtras
+error_on_warning = EarlyFilteredLogger(global_logger()) do log_args
+    if log_args.level >= Logging.Warn
+        error(log_args)
+    end
+    return true
+end;
+
 model_cross = gen_model_cross(; 
     inv_case, tools=df.tool, priors_pop, psets, sim_sols_probs, scenario, solver);
-chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 1e-2), n_sample, init_params = collect(popt))
+
+sample0 = CP.get_init_mixedmodel(fixed, random, indiv)
+with_logger(error_on_warning) do
+    chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 1e-2), n_sample, init_params = collect(sample0))
+end
+
+# first chain as a ComponentMatrix
+s1 = ComponentMatrix(Array(chn[:,1:length(sample0),1]), FlatAxis(), first(getaxes(sample0)))
+s1[:,:fixed][:,:sv₊p]
