@@ -122,7 +122,7 @@ sim_sols_probs = gen_sim_sols_probs(; tools = df.tool, psets, solver)
     sol2 = first(sols);
     @test sol2.t == sol.t
     @test sol2[sv.x] == sol[sv.x]
-    @test sol2 == sol
+    #@test sol2 == sol # Stackoverflow on older versions
 end;
 
 # @testset "extract_stream_obsmatrices" begin
