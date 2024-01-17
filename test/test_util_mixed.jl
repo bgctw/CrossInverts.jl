@@ -19,7 +19,7 @@ p_sites = CP.get_site_parameters(inv_case)
 n_indiv = length(keys(p_sites))
 
 # need to put entire ComponentVectors to provide the sizes
-# the values will be overidden below
+# the values will be overridden below
 fixed = CA.ComponentVector(sv₊p = 1:3)
 random = CA.ComponentVector(sv₊x = [2.1,2.2], sv₊τ = 0.1)
 indiv_mean = CA.ComponentVector(sv₊i = 0.2)
@@ -178,9 +178,9 @@ model_cross = gen_model_cross(;
     inv_case, tools=df.tool, priors_pop, psets, sim_sols_probs, scenario, solver);
 
 sample0 = CP.get_init_mixedmodel(fixed, random, indiv)
-with_logger(error_on_warning) do
+#with_logger(error_on_warning) do
     chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 1e-2), n_sample, init_params = collect(sample0))
-end
+#end
 
 # first chain as a ComponentMatrix
 s1 = ComponentMatrix(Array(chn[:,1:length(sample0),1]), FlatAxis(), first(getaxes(sample0)))
