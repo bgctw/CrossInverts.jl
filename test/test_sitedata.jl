@@ -10,10 +10,10 @@ using Distributions
 @named m1 = CP.samplesystem1()
 @named sys = embed_system(m1)
 inv_case = SampleSystem1Case()
-scenario = NTuple{0,Symbol}()
+scenario = NTuple{0, Symbol}()
 
 @testset "get_indivdata" begin
-    res = get_indivdata(inv_case, :A; 
+    res = get_indivdata(inv_case, :A;
         scenario = CA.ComponentVector())
     # keys for different data streams
     @test all((:m1₊x1, :m1₊dec2) .∈ Ref(keys(res)))
@@ -42,9 +42,9 @@ end;
     popt = CA.ComponentVector(state = (m1₊x1 = 1.0, m1₊x2 = 1.0),
         par = (m1₊τ = 1.0, m1₊p = fill(1.0, 3)))
     indiv = flatten1(popt)[(:m1₊x1, :m1₊x2)]
-    res_prior = setup_tools_scenario(:A; inv_case, scenario, system = sys, 
+    res_prior = setup_tools_scenario(:A; inv_case, scenario, system = sys,
         keys_indiv = keys(indiv))
-    res = setup_tools_scenario(:A; inv_case, scenario, system = sys, 
+    res = setup_tools_scenario(:A; inv_case, scenario, system = sys,
         keys_indiv = keys(indiv), u0 = popt.state, p = popt.par)
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
@@ -53,12 +53,11 @@ end;
     #
     fixed = CA.ComponentVector{Float64}()
     random = flatten1(popt)[(:m1₊p,)]
-    priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario);
+    priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario)
     @test eltype(priors_pop.fixed) <: Distribution
     @test keys(priors_pop.fixed) == keys(fixed)
     @test eltype(priors_pop.random) <: Distribution
     @test keys(priors_pop.random) == keys(random)
     @test eltype(priors_pop.random_σ) <: Distribution
     @test keys(priors_pop.random_σ) == keys(random)
-
 end;

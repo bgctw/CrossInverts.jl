@@ -22,7 +22,7 @@ function sample_slc_cross(df_site_u0_p, targetlim, scenario;
     tools1 = first(df.tools)
     popt_names = symbols_paropt(tools1.psetci)
     psets = setup_psets_fixed_random_indiv(keys_opt_fixed,
-    keys_opt_random; system = tools1.system, popt = missing ) #TODO #popt_names )
+        keys_opt_random; system = tools1.system, popt = missing) #TODO #popt_names )
     popt0 = get_popt_from_tools(df.tools, psets)
     priors_opt = get_priors_opt_from_tools(df.tools, psets, priors_σ_dict)
     # function barrier so that all types are know inside
@@ -311,12 +311,14 @@ function get_parameter_keys(psets; n_indiv)
         :random_σstar => [Symbol("σstar_" * string(pname))
                           for pname in symbols_paropt(psets.random)],
         :indiv => [Symbol("s" * string(x[2]) * "_" * string(x[1]))
-                   for x in IterTools.product_distribution(symbols_paropt(psets.indiv), 1:n_indiv)],
+                   for x in IterTools.product_distribution(symbols_paropt(psets.indiv),
+            1:n_indiv)],
         :indiv_random => [Symbol("r" * string(x[2]) * "_" * string(x[1]))
                           for x in IterTools.product_distribution(symbols_paropt(psets.random),
             1:n_indiv)],
         :u0 => [Symbol("u0" * string(x[2]) * "_" * string(x[1]))
-                for x in IterTools.product_distribution(symbols_state(psets.fixed), 1:n_indiv)])
+                for x in IterTools.product_distribution(symbols_state(psets.fixed),
+            1:n_indiv)])
     return parkeys_dict
 end
 
@@ -398,7 +400,8 @@ function extract_chains_site(chn::MCMCChains.Chains)
 end
 
 function add_obs_cross(lc, chn::MCMCChains.Chains, sites, var_obs;
-        tools = NamedTuple((indiv_id => setup_tools_scenario(indiv_id, lc...) for indiv_id in sites)),
+        tools = NamedTuple((indiv_id => setup_tools_scenario(indiv_id, lc...)
+                            for indiv_id in sites)),
         kwargs...)
     add_obs_cross(chn, var_obs; tools, kwargs...)
 end

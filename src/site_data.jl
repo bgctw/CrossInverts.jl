@@ -60,31 +60,30 @@ Concrete types should implement
 """
 abstract type AbstractCrossInversionCase end
 
-
-function mean_priors(;system, priors_dict, component_keys...)
+function mean_priors(; system, priors_dict, component_keys...)
     #(_comp,_keys) = first(pairs(component_keys))
-    gen = (begin 
+    gen = (begin
         priors_k = dict_to_cv(_keys, priors_dict)
         m = meandist2componentarray(priors_k)
-    end for (_comp, _keys) in pairs(component_keys))
-    ntup = (;zip(keys(component_keys), gen)...)
+    end
+           for (_comp, _keys) in pairs(component_keys))
+    ntup = (; zip(keys(component_keys), gen)...)
     popt = vcat_statesfirst(ntup...; system)
-    (;ntup..., popt)
+    (; ntup..., popt)
 end
 
 """
 TODO describe
 """
-function setup_tools_scenario(indiv_id;     
+function setup_tools_scenario(indiv_id;
         inv_case::AbstractCrossInversionCase, scenario,
         system,
         sitedata = get_indivdata(inv_case, indiv_id; scenario),
         tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
         u0 = nothing,
         p = nothing,
-        keys_indiv = NTuple{0,Symbol}(),
-        )
-        #Main.@infiltrate_main
+        keys_indiv = NTuple{0, Symbol}(),)
+    #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
     priors_dict = get_priors_dict(inv_case, indiv_id; scenario)
     # default u0 and p from expected value of priors
@@ -96,7 +95,7 @@ function setup_tools_scenario(indiv_id;
         priors_p = dict_to_cv(unique(symbol_op.(parameters(system))), priors_dict)
         p = meandist2componentarray(priors_p)
     end
-    u0p = ComponentVector(state=u0, par=p)
+    u0p = ComponentVector(state = u0, par = p)
     problem = ODEProblem(system, system_num_dict(u0, sys_num_dict), tspan,
         system_num_dict(p, sys_num_dict))
     #
@@ -115,8 +114,8 @@ function setup_tools_scenario(indiv_id;
     (; pset_u0p, problemupdater, priors_indiv, problem, sitedata)
 end
 
-function setup_priors_pop(keys_fixed, keys_random;  
-    inv_case::AbstractCrossInversionCase, scenario)
+function setup_priors_pop(keys_fixed, keys_random;
+        inv_case::AbstractCrossInversionCase, scenario)
     priors_dict = get_priors_dict(inv_case, :unknown_site; scenario)
     priors_random_dict = get_priors_random_dict(inv_case; scenario)
     (;

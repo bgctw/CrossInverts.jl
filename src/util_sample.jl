@@ -1,5 +1,5 @@
 function gen_model_cross(;
-        inv_case::AbstractCrossInversionCase, tools, priors_pop, sim_sols_probs, 
+        inv_case::AbstractCrossInversionCase, tools, priors_pop, sim_sols_probs,
         scenario, psets, solver)
     fLogger = EarlyFilteredLogger(current_logger()) do log
         #@show log
@@ -10,9 +10,9 @@ function gen_model_cross(;
     #obs = extract_stream_obsmatrices(;tools)
     obs = map(t -> t.sitedata, tools)
     obs_target = map(obs) do obs_site
-        map(obs_site_stream -> obs_site_stream.obs, obs_site) 
+        map(obs_site_stream -> obs_site_stream.obs, obs_site)
     end
-   #
+    #
     gen_tmodel_cross = let pdf_deficit = Exponential(0.001),
         #prior_dist = prior_dist, 
         scenario = scenario,
@@ -25,7 +25,9 @@ function gen_model_cross(;
         obs = obs,
         # assume all sites/indiv have same streams
         streams = keys(first(obs)),
-        dtypes = (;zip(streams, (get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams))...)
+        dtypes = (;
+            zip(streams,
+                (get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams))...)
         #saveat = union(map_keys(stream -> stream.t, obs)),
         stream_nums = (;
             zip(streams,
@@ -67,22 +69,23 @@ function gen_model_cross(;
             indiv_nl = StaticArrays.MMatrix{npsite, n_indiv, T}(undef)
             indiv = ComponentArray(getdata(indiv_nl), ax_indiv, FlatAxis())
             indiv_random_nl = StaticArrays.MMatrix{nprand, n_indiv, T}(undef)
-            indiv_random = ComponentArray(getdata(indiv_random_nl), first(getaxes(random)), FlatAxis())
+            indiv_random = ComponentArray(getdata(indiv_random_nl),
+                first(getaxes(random)), FlatAxis())
             #i_indiv = 1
             for i_indiv in 1:n_indiv
                 prior_indiv = priors_indiv[i_indiv]
                 #k = first(keys(prior_indiv))
                 for k in keys(prior_indiv)
-                    indiv[k,i_indiv] ~ prior_indiv[k]
+                    indiv[k, i_indiv] ~ prior_indiv[k]
                     #indiv[k,i_indiv] = rand(prior_indiv[k])
                 end
                 #k = first(keys(prand_σ))
                 for k in keys(prand_σ)
                     ne = length(prand_σ[k])
-                    d = ne == 1 ? 
-                    fit_mean_Σ(LogNormal, 1, prand_σ[k]) :
-                    fit_mean_Σ(MvLogNormal, fill(1,ne), PDiagMat(exp.(prand_σ[k])))
-                    indiv_random[k,i_indiv] ~ d
+                    d = ne == 1 ?
+                        fit_mean_Σ(LogNormal, 1, prand_σ[k]) :
+                        fit_mean_Σ(MvLogNormal, fill(1, ne), PDiagMat(exp.(prand_σ[k])))
+                    indiv_random[k, i_indiv] ~ d
                     #indiv_random[k,i_indiv] = rand(d)
                 end
             end
@@ -92,13 +95,14 @@ function gen_model_cross(;
             #@show poptl
             #Main.@infiltrate_main
             # sampling changes eltype of Any, need to convert back
-            res_sim = sim_sols_probs(
-                convert(typeof(fixed_nl), getdata(fixed))::typeof(fixed_nl),
+            res_sim = sim_sols_probs(convert(typeof(fixed_nl),
+                    getdata(fixed))::typeof(fixed_nl),
                 convert(typeof(random_nl), getdata(random))::typeof(fixed_nl),
                 convert(typeof(indiv_nl), getdata(indiv))::typeof(indiv_nl),
-                convert(typeof(indiv_random_nl), getdata(indiv_random))::typeof(indiv_random_nl);
+                convert(typeof(indiv_random_nl),
+                    getdata(indiv_random))::typeof(indiv_random_nl);
                 #saveat = saveat)
-                )
+            )
             #i_indiv = 1
             for i_indiv in 1:n_indiv
                 # not in 1.6 (; sol, problem_opt) = res_sim[i_indiv]
@@ -112,9 +116,9 @@ function gen_model_cross(;
                 # for accessing solution at 100 time points need to store full solution
                 for stream in streams
                     obss = obs[i_indiv][stream]
-                    pred = sol(obss.t; idxs=stream_nums[stream]).u
+                    pred = sol(obss.t; idxs = stream_nums[stream]).u
                     #(i,t) = first(enumerate(obss.t))
-                    for (i,t) in enumerate(obss.t)
+                    for (i, t) in enumerate(obss.t)
                         pred_t = pred[i]
                         unc = obss.obs_unc[i]
                         dist_pred = fit_mean_Σ(dtypes[stream], pred_t, unc)
@@ -145,15 +149,15 @@ The return has components
 `fixed`, `random`, `random_σ`, `indiv`, `indiv_random`
 where `indiv` is a flat version with column names as entries of vectors.
 """
-function get_init_mixedmodel(psets, popt_indiv::AbstractVector{<:ComponentVector}, priors_σ; 
-    kwargs...)
-    (fixed, random, indiv, indiv_random ) = extract_mixed_effects(psets, popt_indiv; kwargs...)
-    get_init_mixedmodel(;fixed, random, indiv, priors_σ, indiv_random)
+function get_init_mixedmodel(psets, popt_indiv::AbstractVector{<:ComponentVector}, priors_σ;
+        kwargs...)
+    (fixed, random, indiv, indiv_random) = extract_mixed_effects(psets, popt_indiv;
+        kwargs...)
+    get_init_mixedmodel(; fixed, random, indiv, priors_σ, indiv_random)
 end
 
 function extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVector};
-        indiv_ids = ((Symbol("i$i") for i in 1:length(popt_indiv))...,)
-    )
+        indiv_ids = ((Symbol("i$i") for i in 1:length(popt_indiv))...,))
     keys_p = map(pset -> keys(axis_paropt_flat1(pset)), psets)
     keys_opt = MTKHelpers.tuplejoin(keys_p...)
     #k = first(keys_opt) # k = keys_opt[2]
@@ -163,37 +167,31 @@ function extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVect
     random = popt_mean[keys_p.random]
     ax_site = Axis(indiv_ids)
     #@show indiv_ids, ax_site
-    indiv = ComponentMatrix(
-        hcat((popt[keys_p.indiv] for popt in popt_indiv)...),
-        axis_paropt_flat1(psets.indiv), ax_site
-    )
+    indiv = ComponentMatrix(hcat((popt[keys_p.indiv] for popt in popt_indiv)...),
+        axis_paropt_flat1(psets.indiv), ax_site)
     #popt = first(popt_indiv)
-    indiv_random = ComponentMatrix(
-        hcat((popt[keys_p.random] ./ popt_mean[keys_p.random] for popt in popt_indiv)...),
-        axis_paropt_flat1(psets.random), ax_site
-    )
-    (;fixed, random, indiv, indiv_random )
+    indiv_random = ComponentMatrix(hcat((popt[keys_p.random] ./ popt_mean[keys_p.random] for popt in popt_indiv)...),
+        axis_paropt_flat1(psets.random), ax_site)
+    (; fixed, random, indiv, indiv_random)
 end
 
-function get_init_mixedmodel(;fixed::ComponentVector, random::ComponentVector, 
-    indiv::ComponentMatrix, priors_σ,
-    indiv_random = missing
-    )
-    random_σ = random_σ = ComponentVector(;((k, mean(priors_σ[k])) for k in keys(random))...)
+function get_init_mixedmodel(; fixed::ComponentVector, random::ComponentVector,
+        indiv::ComponentMatrix, priors_σ,
+        indiv_random = missing)
+    random_σ = random_σ = ComponentVector(;
+        ((k, mean(priors_σ[k])) for k in keys(random))...)
     if ismissing(indiv_random)
-        n_indiv = size(indiv,2)
+        n_indiv = size(indiv, 2)
         ax_random = first(getaxes(random))
         ax_site = getaxes(indiv)[2]
-        indiv_random = ComponentMatrix(fill(1.0, length(random), n_indiv), ax_random, ax_site) 
+        indiv_random = ComponentMatrix(fill(1.0, length(random), n_indiv),
+            ax_random, ax_site)
     end
-    ComponentVector(;fixed, random, 
+    ComponentVector(; fixed, random,
         random_σ,
         indiv = flatten_cm(indiv),
-        indiv_random = flatten_cm(indiv_random),
-    )
+        indiv_random = flatten_cm(indiv_random),)
 end
-
-
 
 """
     flatten_cm(cm::ComponentMatrix)
@@ -201,7 +199,7 @@ end
 Return a flat version of ComponentMatrix cm.
 """
 function flatten_cm(cm::ComponentMatrix)
-    template = ComponentVector(;((k, cm[:,k]) for k in keys(getaxes(cm)[2]))...)
+    template = ComponentVector(; ((k, cm[:, k]) for k in keys(getaxes(cm)[2]))...)
     ComponentArray(vec(cm), getaxes(template))
 end
 
@@ -221,5 +219,3 @@ end
 #         map(k -> FUN(k, cv[k]), keys(cv))
 #     end
 # end
-
-

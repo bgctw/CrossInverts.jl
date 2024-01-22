@@ -49,7 +49,7 @@ gen_site_data1 = () -> begin
     res  # copy from terminal and paste into get_indivdata
 end
 
-function get_indivdata(::SampleSystem1Case, indiv_id; scenario = NTuple{0,Symbol}())
+function get_indivdata(::SampleSystem1Case, indiv_id; scenario = NTuple{0, Symbol}())
     data = (A = (m1₊x1 = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [2.4778914737556788, 2.8814759312054585,
                     3.1123382362789704, 3.319855891619185],
@@ -80,7 +80,7 @@ function get_indivdata(::SampleSystem1Case, indiv_id; scenario = NTuple{0,Symbol
     data[indiv_id]
 end
 
-function get_priors_dict(::SampleSystem1Case, indiv_id; scenario = NTuple{0,Symbol}())
+function get_priors_dict(::SampleSystem1Case, indiv_id; scenario = NTuple{0, Symbol}())
     #using DataFrames, Tables, DistributionFits
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -96,11 +96,11 @@ function get_priors_dict(::SampleSystem1Case, indiv_id; scenario = NTuple{0,Symb
     dd
 end
 
-function get_priors_random_dict(::SampleSystem1Case; scenario = NTuple{0,Symbol}())
+function get_priors_random_dict(::SampleSystem1Case; scenario = NTuple{0, Symbol}())
     #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
     # prior in σ rather than σstar
     d_exp = Exponential(log(1.05))
-    dd = Dict{Symbol, Distribution}([:m1₊x1,:m1₊x2,:m1₊i,:m1₊τ] .=> d_exp)
+    dd = Dict{Symbol, Distribution}([:m1₊x1, :m1₊x2, :m1₊i, :m1₊τ] .=> d_exp)
     dd[:m1₊p] = product_distribution(d_exp, d_exp, d_exp)
     dd
 end

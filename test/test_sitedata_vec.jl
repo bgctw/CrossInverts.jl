@@ -10,10 +10,10 @@ using Distributions
 @named sv = CP.samplesystem_vec()
 @named sys = embed_system(sv)
 inv_case = SampleSystemVecCase()
-scenario = NTuple{0,Symbol}()
+scenario = NTuple{0, Symbol}()
 
 @testset "get_indivdata" begin
-    res = get_indivdata(inv_case, :A; 
+    res = get_indivdata(inv_case, :A;
         scenario = CA.ComponentVector())
     # keys for different data streams
     @test all((:sv₊x, :sv₊dec2) .∈ Ref(keys(res)))
@@ -42,7 +42,7 @@ end;
     popt = CA.ComponentVector(state = (sv₊x = [1.0, 1.0],),
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
     random = flatten1(popt)[(:sv₊x, :sv₊τ)]
-    indiv = flatten1(popt)[(:sv₊p,)] 
+    indiv = flatten1(popt)[(:sv₊p,)]
     res_prior = setup_tools_scenario(:A; inv_case, scenario, system = sys,
         keys_indiv = keys(indiv))
     res = setup_tools_scenario(:A; inv_case, scenario, system = sys,
@@ -55,7 +55,7 @@ end;
     @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()
-    priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario);
+    priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario)
     @test eltype(priors_pop.fixed) <: Distribution
     @test keys(priors_pop.fixed) == keys(fixed)
     @test eltype(priors_pop.random) <: Distribution

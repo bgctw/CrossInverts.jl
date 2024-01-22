@@ -8,10 +8,10 @@ from u0 and p.
 It is used to get an initial estimate of the random effects given a population
 mean, and the individual indiv_id parameters.
 """
-function gen_compute_indiv_rand(pset::AbstractProblemParSetter, random) 
-    let pset=pset, random=random
+function gen_compute_indiv_rand(pset::AbstractProblemParSetter, random)
+    let pset = pset, random = random
         compute_indiv_rand = (u0, p) -> begin
-            local popt = get_paropt_labeled(pset, u0, p; flat1=Val(true))
+            local popt = get_paropt_labeled(pset, u0, p; flat1 = Val(true))
             # k = first(keys(random))
             gen = (popt[k] ./ random[k] for k in keys(random))
             v = reduce(vcat, gen)
@@ -64,7 +64,6 @@ function setup_psets_fixed_random_indiv(keys_fixed, keys_random; system, popt)
     return psets
 end
 
-
 # function setup_psets_fixed_random_indiv(system, chn::MCMCChains.Chains)
 #     @error "not fully implemented yet."
 #     opt = extract_popt_names(chn)
@@ -86,20 +85,21 @@ Update and simulate system (given with tools to gen_sim_sols_probs) by
 If non-optimized p and u0 differ between individuals, they must already be
 set in tools[i_indiv].problem.
 """
-function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_gen...)
+function gen_sim_sols_probs(; tools, psets, solver = AutoTsit5(Rodas5()), kwargs_gen...)
     fLogger = EarlyFilteredLogger(current_logger()) do log
         #@show log
         !(log.level == Logging.Warn && log.group == :integrator_interface)
     end
     n_indiv = length(tools)
     # see help on MTKHelpers.ODEProblemParSetterConcrete
-    fbarrier = (psets=map(get_concrete, psets),
-        problemupdater=get_concrete(first(tools).problemupdater)) -> let solver = solver,
+    fbarrier = (psets = map(get_concrete, psets),
+    problemupdater = get_concrete(first(tools).problemupdater)) -> let solver = solver,
         problems_indiv = map(t -> t.problem, tools),
         psets = psets, problemupdater = problemupdater,
         n_indiv = n_indiv,
-        kwargs_gen = kwargs_gen, 
-        fLogger = fLogger #, psetci_u_PlantNP=psetci_u_PlantNP 
+        kwargs_gen = kwargs_gen,
+        fLogger = fLogger
+        #, psetci_u_PlantNP=psetci_u_PlantNP 
         kwargs_indiv_default = fill((), n_indiv)
         #
         (fixed, random, indiv, indiv_random; kwargs_indiv = kwargs_indiv_default, kwargs...) -> begin
@@ -116,7 +116,8 @@ function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_g
                 #suppress does not work with MCMCThreads() sampling
                 #sol = @suppress solve(problem_opt, solver, maxiters = 1e4)
                 sol = with_logger(fLogger) do
-                    sol = solve(problem_opt, solver; kwargs_gen..., kwargs_indiv[i_indiv]..., kwargs...)
+                    sol = solve(problem_opt, solver;
+                        kwargs_gen..., kwargs_indiv[i_indiv]..., kwargs...)
                 end
                 (; sol, problem_opt)
             end # map 1:n_indiv
@@ -144,7 +145,10 @@ function gen_sim_sols(sim_sols_probs)
     end
 end
 
-function sample_and_add_ranef(problem, priors_random::ComponentVector, rng::AbstractRNG=default_rng(); psets) 
+function sample_and_add_ranef(problem,
+        priors_random::ComponentVector,
+        rng::AbstractRNG = default_rng();
+        psets)
     keys_random = keys(priors_random)
     #keys_gen = (k for k in keys_random) # mappring directly of keys does not work
     #kp = first(keys(random))
@@ -159,7 +163,7 @@ function sample_and_add_ranef(problem, priors_random::ComponentVector, rng::Abst
                fit_mean_Σ(MvLogNormal, fill(1, len_σ), PDiagMat(exp.(σ)))
         rand(rng, dist)
     end
-    ranef = ComponentVector(;zip(keys_random, tup)...)
+    ranef = ComponentVector(; zip(keys_random, tup)...)
     paropt_r = get_paropt_labeled(psets.random, problem) .* ranef
     remake(problem, paropt_r, psets.random)
 end

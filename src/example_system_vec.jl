@@ -28,7 +28,7 @@ function product_MvLogNormal(comp...)
     MvLogNormal(μ, Σ)
 end
 
-function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0,Symbol}())
+function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -47,20 +47,20 @@ function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0,Sy
     dd
 end
 
-function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0,Symbol}())
+function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
     #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
     # prior in σ rather than σstar
     d_exp = Exponential(log(1.05))
     dd = Dict{Symbol, Distribution}([:sv₊τ, :sv₊i] .=> d_exp)
     # https://github.com/TuringLang/Bijectors.jl/issues/300
     # dd[:sv₊x] = product_distribution(d_exp,d_exp)
-    dd[:sv₊x] = Distributions.Product(fill(d_exp,2))
+    dd[:sv₊x] = Distributions.Product(fill(d_exp, 2))
     # d_lognorm = fit(LogNormal, moments(d_exp))
     # dd[:sv₊x] = product_MvLogNormal(d_lognorm,d_lognorm)
     dd
 end
 
-function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0,Symbol}())
+function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
     #_dict_nums = get_system_symbol_dict(system)
@@ -72,7 +72,7 @@ function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0
     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
 
     priors_dict = get_priors_dict(inv_case, :A; scenario)
-    _m = Dict(k => mean(v) for (k,v) in priors_dict)
+    _m = Dict(k => mean(v) for (k, v) in priors_dict)
     fixed = ComponentVector(sv₊p = _m[:sv₊p])
     random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
     indiv = ComponentVector(sv₊i = _m[:sv₊i])
@@ -83,8 +83,7 @@ function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0
 
     p_A = (label_state(pset, problem.u0), label_par(pset, problem.p)) # Tuple (u0, p)
     # multiply random effects for sites B and C
-    priors_random = dict_to_cv(keys(random), get_priors_random_dict(
-        inv_case; scenario))
+    priors_random = dict_to_cv(keys(random), get_priors_random_dict(inv_case; scenario))
     rng = StableRNG(234)
     _get_u0p_ranef = () -> begin
         probo = sample_and_add_ranef(problem, priors_random, rng; psets)
@@ -92,10 +91,10 @@ function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0
     end
     #_get_u0p_ranef()
     p_indiv = rename(DataFrame([
-        (:A, p_A...),
-        (:B, _get_u0p_ranef()...), 
-        (:C, _get_u0p_ranef()...)
-        ]),["indiv_id","u0","p"])
+            (:A, p_A...),
+            (:B, _get_u0p_ranef()...),
+            (:C, _get_u0p_ranef()...),
+        ]), ["indiv_id", "u0", "p"])
     # ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
     if :modify_fixed ∈ scenario
         # modify fixed parameters of third indiv_id
@@ -104,20 +103,17 @@ function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0
     p_indiv
 end
 
-function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream; 
-    scenario = NTuple{0,Symbol}())
-    dtypes = Dict{Symbol, Type}(
-        :sv₊dec2 => LogNormal,
-        :sv₊x => MvLogNormal,
-    )
+function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
+        scenario = NTuple{0, Symbol}())
+    dtypes = Dict{Symbol, Type}(:sv₊dec2 => LogNormal,
+        :sv₊x => MvLogNormal)
     dtypes[stream]
 end
-
 
 gen_site_data_vec = () -> begin
     # using in test_util_mixed
     inv_case = SampleSystemVecCase()
-    scenario = NTuple{0,Symbol}()
+    scenario = NTuple{0, Symbol}()
     p_indiv = CP.get_indiv_parameters(inv_case)
     #using DistributionFits, StableRNGs, Statistics
     # other usings from test_util_mixed
@@ -132,11 +128,11 @@ gen_site_data_vec = () -> begin
     #indiv_id = first(keys(p_indiv))
     streams = (:sv₊x, :sv₊dec2)
     dtypes = Dict(s => get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams)
-    unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => PDiagMat(log.([1.1,1.1])))
+    unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => PDiagMat(log.([1.1, 1.1])))
     d_noise = Dict(s => begin
         unc = unc_par[s]
-        m = unc isa AbstractMatrix ? fill(1.0, size(unc,1)) : 1.0
-        fit_mean_Σ(dtypes[s], m, unc) 
+        m = unc isa AbstractMatrix ? fill(1.0, size(unc, 1)) : 1.0
+        fit_mean_Σ(dtypes[s], m, unc)
     end for s in streams)
     # d_noise[:sv₊x]
     rng = StableRNG(123)
@@ -147,7 +143,8 @@ gen_site_data_vec = () -> begin
         #p_new = Dict(sv.i .=> p_indiv[indiv_id].sv₊i)
         #prob = ODEProblem(system, st, (0.0, 2.0), p_new)
         probo = remake(problem,
-            u0 = CA.getdata(indiv_dict[indiv_id][1]), p = CA.getdata(indiv_dict[indiv_id][2]))
+            u0 = CA.getdata(indiv_dict[indiv_id][1]),
+            p = CA.getdata(indiv_dict[indiv_id][2]))
         sol = solve(probo, Tsit5(), saveat = t)
         #sol[[sv.x[1], sv.dec2]]
         #sol[_dict_nums[:sv₊dec2]]
