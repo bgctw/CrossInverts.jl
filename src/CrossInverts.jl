@@ -15,7 +15,7 @@ using MCMCChains: MCMCChains
 using Random, StableRNGs
 using PDMats: PDiagMat
 
-export setup_tools_scenario, get_sitedata, get_priors_dict, dict_to_cv
+export setup_tools_scenario, get_indivdata, get_priors_dict, dict_to_cv
 export AbstractCrossInversionCase
 include("site_data.jl")
 

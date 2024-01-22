@@ -28,7 +28,7 @@ function product_MvLogNormal(comp...)
     MvLogNormal(μ, Σ)
 end
 
-function get_priors_dict(::SampleSystemVecCase, site; scenario = NTuple{0,Symbol}())
+function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0,Symbol}())
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -60,7 +60,7 @@ function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0,Symbo
     dd
 end
 
-function get_site_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0,Symbol}())
+function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0,Symbol}())
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
     #_dict_nums = get_system_symbol_dict(system)
@@ -81,21 +81,25 @@ function get_site_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0,
     pset = ODEProblemParSetter(system, popt)
     problem = remake(problem, popt, pset)
 
-    p_A = ComponentVector(u0 = label_state(pset, problem.u0),
-        p = label_par(pset, problem.p))
+    p_A = (label_state(pset, problem.u0), label_par(pset, problem.p)) # Tuple (u0, p)
     # multiply random effects for sites B and C
     priors_random = dict_to_cv(keys(random), get_priors_random_dict(
         inv_case; scenario))
     rng = StableRNG(234)
     _get_u0p_ranef = () -> begin
         probo = sample_and_add_ranef(problem, priors_random, rng; psets)
-        ComponentVector(u0 = label_state(pset, probo.u0), p = label_par(pset, probo.p))
+        (label_state(pset, probo.u0), label_par(pset, probo.p))
     end
-    _get_u0p_ranef()
-    p_sites = ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
-    # modify fixed parameters of third site
-    p_sites.C.p.sv₊p = p_sites.C.p.sv₊p .* 1.2
-    p_sites
+    #_get_u0p_ranef()
+    p_indiv = rename(DataFrame([
+        (:A, p_A...),
+        (:B, _get_u0p_ranef()...), 
+        (:C, _get_u0p_ranef()...)
+        ]),["indiv_id","u0","p"])
+    # ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
+    # modify fixed parameters of third indiv_id
+    p_indiv.p[3].sv₊p = p_indiv.p[3].sv₊p .* 1.2
+    p_indiv
 end
 
 function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream; 
@@ -111,7 +115,7 @@ end
 gen_site_data_vec = () -> begin
     inv_case = SampleSystemVecCase()
     scenario = NTuple{0,Symbol}()
-    p_sites = CP.get_site_parameters(inv_case)
+    p_indiv = CP.get_indiv_parameters(inv_case)
     #using DistributionFits, StableRNGs, Statistics
     # other usings from test_util_mixed
     @named sv = CP.samplesystem_vec()
@@ -119,12 +123,12 @@ gen_site_data_vec = () -> begin
     _dict_nums = get_system_symbol_dict(system)
     # setup a problem, numbers do not matter, because set below from prior mean
     t = [0.2, 0.4, 1.0, 2.0]
-    p_siteA = p_sites.A 
+    p_siteA = p_indiv.u0p[1]
     st = p_siteA.u0
     #st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
     p_new = Dict(sv.i .=> p_siteA.p.sv₊i)
     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
-    #site = first(keys(p_sites))
+    #indiv_id = first(keys(p_indiv))
     streams = (:sv₊x, :sv₊dec2)
     dtypes = Dict(s => get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams)
     unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => PDiagMat(log.([1.1,1.1])))
@@ -135,13 +139,14 @@ gen_site_data_vec = () -> begin
     end for s in streams)
     # d_noise[:sv₊x]
     rng = StableRNG(123)
-    # site = first(keys(p_sites))
-    obs_tuple = map(keys(p_sites)) do site
-        #st = Dict(Symbolics.scalarize(sv.x .=> p_sites[site].u0.sv₊x))
-        #p_new = Dict(sv.i .=> p_sites[site].sv₊i)
+    indiv_dict = Dict(p_indiv.indiv_id .=> zip(p_indiv.u0, p_indiv.p))
+    # indiv_id = first(p_indiv.indiv_id)
+    obs_tuple = map(p_indiv.indiv_id) do indiv_id
+        #st = Dict(Symbolics.scalarize(sv.x .=> p_indiv[indiv_id].u0.sv₊x))
+        #p_new = Dict(sv.i .=> p_indiv[indiv_id].sv₊i)
         #prob = ODEProblem(system, st, (0.0, 2.0), p_new)
         probo = remake(problem,
-            u0 = CA.getdata(p_sites[site].u0), p = CA.getdata(p_sites[site].p))
+            u0 = CA.getdata(indiv_dict[indiv_id][1]), p = CA.getdata(indiv_dict[indiv_id][2]))
         sol = solve(probo, Tsit5(), saveat = t)
         #sol[[sv.x[1], sv.dec2]]
         #sol[_dict_nums[:sv₊dec2]]
@@ -158,12 +163,12 @@ gen_site_data_vec = () -> begin
         end
         (; zip(streams, tmp)...)
     end
-    res = (; zip(keys(p_sites), obs_tuple)...)
+    res = (; zip(p_indiv.indiv_id, obs_tuple)...)
     #clipboard(res) # not on slurm
-    res  # copy from terminal and paste into get_sitedata
+    res  # copy from terminal and paste into get_indivdata
 end
 
-function get_sitedata(::SampleSystemVecCase, site; scenario = NTuple{0,Symbol}())
+function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0,Symbol}())
     data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
                     [2.0275948679676405, 2.2846639923962027],
@@ -260,5 +265,5 @@ function get_sitedata(::SampleSystemVecCase, site; scenario = NTuple{0,Symbol}()
                     1.517493725600046,
                     1.5184125037939566,
                 ])))
-    data[site]
+    data[indiv_id]
 end

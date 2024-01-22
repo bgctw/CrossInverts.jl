@@ -1,8 +1,8 @@
 # """
-#     setup_scenario(site, targetlim, scenario, u0, p;
+#     setup_scenario(indiv_id, targetlim, scenario, u0, p;
 #         system = get_plant_sesam_system(scenario),
 #         tspan = (0, 20000),
-#         sitedata = get_sitedata(site),    
+#         sitedata = get_indivdata(indiv_id),    
 #         )
 
 # Initialize the names of parameters to optimize, adjust initial state, 
@@ -16,15 +16,15 @@
 # - `problem`: ODEProblem initialized by given u0, and p
 # - `system`: ODESystem
 # """
-# function setup_popt_scenario(site, targetlim, scenario; kwargs... )
+# function setup_popt_scenario(indiv_id, targetlim, scenario; kwargs... )
 #     u0d, pd = get_initial_sesam_parameters()
-#     init_u0_p_poptnames(site, targetlim, scenario, u0d, pd)
+#     init_u0_p_poptnames(indiv_id, targetlim, scenario, u0d, pd)
 # end
 
-# function setup_tools_scenario_u0_popt(site, targetlim, scenario, u0, popt,
+# function setup_tools_scenario_u0_popt(indiv_id, targetlim, scenario, u0, popt,
 #     kwargs...
 #     )
-#     tools = setup_tools_scenario(site, targetlim, scenario; kwargs...)
+#     tools = setup_tools_scenario(indiv_id, targetlim, scenario; kwargs...)
 #     pset_u0 = ODEProblemParSetter(tools.system, CA.Axis(strip_trailing_zero.(keys(u0))))
 #     pset_popt = ODEProblemParSetter(tools.system, CA.Axis(keys(popt)))
 #     tools = merge(tools, (;problem=set_u0_popt(
@@ -49,25 +49,36 @@ Interface for providing all relevant information for a cross-individual
 mixed effects bayesian inversion.
 
 Concrete types should implement
-- `get_priors_dict(::AbstractCrossInversionCase, site; scenario)`
+- `get_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)`
   Priors for model parameters in fixed, random, and indiv effects. 
 - `get_priors_random_dict(::AbstractCrossInversionCase; scenario)`
   Priors for meta-parameters for random effects.
 - `get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)`
   Type of distribution of observation-uncertainty per stream.
-- `get_sitedata(::AbstractCrossInversionCase, site; scenario)`
-  The times, observations, and uncertainty parameters per site and stream.
+- `get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)`
+  The times, observations, and uncertainty parameters per indiv_id and stream.
 """
 abstract type AbstractCrossInversionCase end
 
 
+function mean_priors(;system, priors_dict, component_keys...)
+    #(_comp,_keys) = first(pairs(component_keys))
+    gen = (begin 
+        priors_k = dict_to_cv(_keys, priors_dict)
+        m = meandist2componentarray(priors_k)
+    end for (_comp, _keys) in pairs(component_keys))
+    ntup = (;zip(keys(component_keys), gen)...)
+    popt = vcat_statesfirst(ntup...; system)
+    (;ntup..., popt)
+end
+
 """
 TODO describe
 """
-function setup_tools_scenario(site;     
-        inv_case::AbstractCrossInversionCase, scenario, popt,
+function setup_tools_scenario(indiv_id;     
+        inv_case::AbstractCrossInversionCase, scenario,
         system,
-        sitedata = get_sitedata(inv_case, site; scenario),
+        sitedata = get_indivdata(inv_case, indiv_id; scenario),
         tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
         u0 = nothing,
         p = nothing,
@@ -75,7 +86,7 @@ function setup_tools_scenario(site;
         )
         #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
-    priors_dict = get_priors_dict(inv_case, site; scenario)
+    priors_dict = get_priors_dict(inv_case, indiv_id; scenario)
     # default u0 and p from expected value of priors
     if isnothing(u0)
         priors_u0 = dict_to_cv(unique(symbol_op.(states(system))), priors_dict)
@@ -85,22 +96,23 @@ function setup_tools_scenario(site;
         priors_p = dict_to_cv(unique(symbol_op.(parameters(system))), priors_dict)
         p = meandist2componentarray(priors_p)
     end
+    u0p = ComponentVector(state=u0, par=p)
     problem = ODEProblem(system, system_num_dict(u0, sys_num_dict), tspan,
         system_num_dict(p, sys_num_dict))
     #
-    pset = ODEProblemParSetter(system, popt)
-    problem = remake(problem, popt, pset)
+    pset_u0p = ODEProblemParSetter(system, u0p)
+    problem = remake(problem, u0p, pset_u0p)
     #
-    # u_map = get_u_map(keys(u0), pset)
-    # p_map = get_p_map(keys(p), pset)
+    # u_map = get_u_map(keys(u0), pset_u0p)
+    # p_map = get_p_map(keys(p), pset_u0p)
     #
     problemupdater = NullProblemUpdater()
     #
-    #popt_l = label_paropt(pset, popt) # axis with split state and par
+    #popt_l = label_paropt(pset_u0p, u0p) # axis with split state and par
     #popt_flat = flatten1(popt_l)
     priors_indiv = dict_to_cv(keys_indiv, priors_dict)
     #
-    (; pset, problemupdater, priors_indiv, problem, sitedata)
+    (; pset_u0p, problemupdater, priors_indiv, problem, sitedata)
 end
 
 function setup_priors_pop(keys_fixed, keys_random;  
@@ -111,7 +123,7 @@ function setup_priors_pop(keys_fixed, keys_random;
         fixed = dict_to_cv(keys_fixed, priors_dict),
         random = dict_to_cv(keys_random, priors_dict),
         random_σ = dict_to_cv(keys_random, priors_random_dict),
-        # the indiv priors can be site-specific, they are setup in setup_tools_scenario
+        # the indiv priors can be indiv_id-specific, they are setup in setup_tools_scenario
     )
 end
 
@@ -131,9 +143,9 @@ meandist2componentarray = function (priors)
 end
 
 """
-    get_sitedata(::AbstractCrossInversionCase, site; scenario)
+    get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)
 
-Provide Tuple `(site -> (stream_info)` for each site.
+Provide Tuple `(indiv_id -> (stream_info)` for each indiv_id.
 Where StreamInfo is a Tuple `(streamsymbol -> (;t, obs, obs_true))`.
 Such that solution can be indexed by sol[streamsymbol](t) to provide
 observations.
@@ -143,10 +155,10 @@ generated from the system, which are not used in inversion, but used for compari
 The ValueType dispatches to different implementations. There is 
 am implementation for `Val(:CrossInverts_samplesystem1)` independent of scenario.
 """
-function get_sitedata end
+function get_indivdata end
 
 """
-    get_priors_dict(::AbstractCrossInversionCase, site; scenario)
+    get_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)
 
 Provide a dictionary (par -> Distribution) for prior parameters and states.
 """
@@ -196,10 +208,10 @@ end
 
 # Extract matrices by stream from sitedata in tools.
 
-# For each site, tools holds the observations of all streams in property sitedata.
+# For each indiv_id, tools holds the observations of all streams in property sitedata.
 # This function returns a ComponentVector for each stream.
 # For each stream it reports subvections t, and matrix for vars where each column
-# relates to one site.
+# relates to one indiv_id.
 # It checks that all sites report the same time, and that variables have the same
 # length as the time column.
 # """
@@ -228,10 +240,9 @@ end
 # end
 
 """
-
     get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)
 
 Provide the type of distribution of observation uncertainty for given stream,
-    to be used with fit_mean_Σ.
+to be used with `fit_mean_Σ`.
 """
 function get_obs_uncertainty_dist_type end

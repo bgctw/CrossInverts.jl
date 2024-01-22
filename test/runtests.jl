@@ -1,7 +1,8 @@
 tmpf = () -> begin
     pop!(LOAD_PATH)
     push!(LOAD_PATH, joinpath(pwd(), "test/"))
-    push!(LOAD_PATH, expanduser("~/julia/devtools_$(VERSION.major).$(VERSION.minor)"))
+    #push!(LOAD_PATH, expanduser("~/julia/devtools_$(VERSION.major).$(VERSION.minor)"))
+    push!(LOAD_PATH, expanduser("@dev_$(VERSION.major).$(VERSION.minor)"))
 end
 
 using Test, SafeTestsets

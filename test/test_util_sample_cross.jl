@@ -29,7 +29,7 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 toolsA = setup_tools_scenario(:A; scenario, popt, system);
 psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 df_site_u0_p = DataFrame(
-    site = [:A, :B, :C],
+    indiv_id = [:A, :B, :C],
     u0 = fill((label_state(toolsA.pset, toolsA.problem.u0)), 3),  
     p = fill((label_par(toolsA.pset, toolsA.problem.p)), 3),   
 )
@@ -86,18 +86,18 @@ end;
     n_sample = 2
     #n_sample = 90
     df_site_u0_p = with_logger(MinLevelLogger(current_logger(), Logging.Warn)) do
-        #site = last(sites)
-        res_optims = pmap(sites) do site
-            slc = (; site, lc...)
+        #indiv_id = last(sites)
+        res_optims = pmap(sites) do indiv_id
+            slc = (; indiv_id, lc...)
             #(;u0, p, res_opt) = CP.optim_slc(slc; iterations=2, iterations2=2);
             (; u0, p, res_opt) = CP.optim_slc(slc; iterations = 400, iterations2 = 100)
-            (; site, u0, p)
+            (; indiv_id, u0, p)
         end
         df_site_u0_p = DataFrame(res_optims)
     end
     sd_df = subset(CP.get_sitedata_df(), :layer => ByRow(==(:top30)))
-    fsitedata = (site) -> sd_df[findfirst(==(site), sd_df.site), :]
-    transform!(df_site_u0_p, :site => ByRow(fsitedata) => :sitedata)
+    fsitedata = (indiv_id) -> sd_df[findfirst(==(indiv_id), sd_df.indiv_id), :]
+    transform!(df_site_u0_p, :indiv_id => ByRow(fsitedata) => :sitedata)
     tools1 = with_logger(MinLevelLogger(current_logger(), Logging.Warn)) do
         tools1 = setup_tools_scenario(sites[1], lc...; sitedata = df_site_u0_p.sitedata[1])
     end

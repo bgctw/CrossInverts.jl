@@ -23,14 +23,14 @@ gen_site_data1 = () -> begin
     @named system = embed_system(m1)
     _dict_nums = get_system_symbol_dict(system)
     t = [0.2, 0.4, 1.0, 2.0]
-    p_sites = ComponentVector(A = (m1₊x1 = 1.0, m1₊i = 4),
+    p_indiv = ComponentVector(A = (m1₊x1 = 1.0, m1₊i = 4),
         B = (m1₊x1 = 1.2, m1₊i = 0.2))
-    site = first(keys(p_sites))
+    indiv_id = first(keys(p_indiv))
     d_noise = fit(LogNormal, 1, Σstar(1.1))
     rng = StableRNG(123)
-    obs_tuple = map(keys(p_sites)) do site
-        st = Dict(m1.x1 .=> p_sites[site].m1₊x1, m1.x2 .=> 1.0)
-        p_new = Dict(m1.i .=> p_sites[site].m1₊i)
+    obs_tuple = map(keys(p_indiv)) do indiv_id
+        st = Dict(m1.x1 .=> p_indiv[indiv_id].m1₊x1, m1.x2 .=> 1.0)
+        p_new = Dict(m1.i .=> p_indiv[indiv_id].m1₊i)
         prob = ODEProblem(system, st, (0.0, 2.0), p_new)
         sol = solve(prob, Tsit5(), saveat = t)
         #sol[[m1.x[1], m1.dec2]]
@@ -44,12 +44,12 @@ gen_site_data1 = () -> begin
         end
         (; zip(streams, tmp)...)
     end
-    res = (; zip(keys(p_sites), obs_tuple)...)
+    res = (; zip(keys(p_indiv), obs_tuple)...)
     #clipboard(res) # not on slurm
-    res  # copy from terminal and paste into get_sitedata
+    res  # copy from terminal and paste into get_indivdata
 end
 
-function get_sitedata(::SampleSystem1Case, site; scenario = NTuple{0,Symbol}())
+function get_indivdata(::SampleSystem1Case, indiv_id; scenario = NTuple{0,Symbol}())
     data = (A = (m1₊x1 = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [2.4778914737556788, 2.8814759312054585,
                     3.1123382362789704, 3.319855891619185],
@@ -77,10 +77,10 @@ function get_sitedata(::SampleSystem1Case, site; scenario = NTuple{0,Symbol}())
                 obs_true = [
                     1.0481566696163267, 0.8539723454282818,
                     0.49978412872575745, 0.28170241145399255])))
-    data[site]
+    data[indiv_id]
 end
 
-function get_priors_dict(::SampleSystem1Case, site; scenario = NTuple{0,Symbol}())
+function get_priors_dict(::SampleSystem1Case, indiv_id; scenario = NTuple{0,Symbol}())
     #using DataFrames, Tables, DistributionFits
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])

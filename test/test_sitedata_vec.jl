@@ -12,8 +12,8 @@ using Distributions
 inv_case = SampleSystemVecCase()
 scenario = NTuple{0,Symbol}()
 
-@testset "get_sitedata" begin
-    res = get_sitedata(inv_case, :A; 
+@testset "get_indivdata" begin
+    res = get_indivdata(inv_case, :A; 
         scenario = CA.ComponentVector())
     # keys for different data streams
     @test all((:sv₊x, :sv₊dec2) .∈ Ref(keys(res)))
@@ -43,12 +43,15 @@ end;
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
     random = flatten1(popt)[(:sv₊x, :sv₊τ)]
     indiv = flatten1(popt)[(:sv₊p,)] 
-    res = setup_tools_scenario(:A; inv_case, scenario, popt, system = sys, keys_indiv = keys(indiv));
+    res_prior = setup_tools_scenario(:A; inv_case, scenario, system = sys,
+        keys_indiv = keys(indiv))
+    res = setup_tools_scenario(:A; inv_case, scenario, system = sys,
+        keys_indiv = keys(indiv), u0 = popt.state, p = popt.par)
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
     @test eltype(res.priors_indiv) <: Distribution
     @test keys(res.priors_indiv) == keys(indiv)
-    @test axis_paropt(res.pset) == CA.getaxes(popt)[1]
+    @test axis_paropt(res.pset_u0p) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()

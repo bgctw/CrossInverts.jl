@@ -6,7 +6,7 @@ random effect-mean `random` computes the individual random effect.
 It uses the provided `ProblemParSetter` to extract the optimized parameters
 from u0 and p.
 It is used to get an initial estimate of the random effects given a population
-mean, and the individual site parameters.
+mean, and the individual indiv_id parameters.
 """
 function gen_compute_indiv_rand(pset::AbstractProblemParSetter, random) 
     let pset=pset, random=random
@@ -40,7 +40,8 @@ function setup_psets_fixed_random_indiv(keys_fixed, keys_random; system, popt)
     psets = (;
         fixed = ODEProblemParSetter(system, popt[fixed1]),
         random = ODEProblemParSetter(system, popt[random1]),
-        indiv = ODEProblemParSetter(system, popt[indiv1]),)
+        indiv = ODEProblemParSetter(system, popt[indiv1]),
+        popt = ODEProblemParSetter(system, popt),)
     # k = :state
     # cvs = (popt,fixed,random)
     # tup = map(keys(popt)) do k
@@ -78,7 +79,7 @@ Update and simulate system (given with tools to gen_sim_sols_probs) by
 - for each individual i
   - update fixed parameters: fixed 
   - update random parameters: random .* indiv_random[:,i]
-  - update site parameters: indiv[:,i]
+  - update indiv_id parameters: indiv[:,i]
   - simulate the problem
 - return a vector(n_indiv) of (;sol, problem_opt)
 
@@ -98,7 +99,6 @@ function gen_sim_sols_probs(; tools, psets, solver=AutoTsit5(Rodas5()), kwargs_g
         psets = psets, problemupdater = problemupdater,
         n_indiv = n_indiv,
         kwargs_gen = kwargs_gen, 
-        pset1 = tools[1].pset
         fLogger = fLogger #, psetci_u_PlantNP=psetci_u_PlantNP 
         kwargs_indiv_default = fill((), n_indiv)
         #

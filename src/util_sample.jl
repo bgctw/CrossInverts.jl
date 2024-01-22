@@ -135,7 +135,8 @@ function gen_model_cross(;
 end
 
 """
-    get_init_mixedmodel(fixed::ComponentVector, random::ComponentVector, indiv::ComponentMatrix)
+    get_init_mixedmodel(fixed::ComponentVector, random::ComponentVector, indiv::ComponentMatrix,
+        priors_σ, indiv_random)
 
 Construct a ComponentVector corresponding to the parameters sampled by the mixed model.
 Argument `indiv` should hold individual identifiers as column axis.
@@ -144,18 +145,55 @@ The return has components
 `fixed`, `random`, `random_σ`, `indiv`, `indiv_random`
 where `indiv` is a flat version with column names as entries of vectors.
 """
-function get_init_mixedmodel(fixed::ComponentVector, random::ComponentVector, 
-    indiv::ComponentMatrix)
-    n_indiv = size(indiv,2)
-    ax_random = first(getaxes(random))
-    ax_site = getaxes(indiv)[2]
-    indiv_rand = ComponentMatrix(fill(1.0, length(random), n_indiv), ax_random, ax_site) 
+function get_init_mixedmodel(psets, popt_indiv::AbstractVector{<:ComponentVector}, priors_σ; 
+    kwargs...)
+    (fixed, random, indiv, indiv_random ) = extract_mixed_effects(psets, popt_indiv; kwargs...)
+    get_init_mixedmodel(;fixed, random, indiv, priors_σ, indiv_random)
+end
+
+function extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVector};
+        indiv_ids = ((Symbol("i$i") for i in 1:length(popt_indiv))...,)
+    )
+    keys_p = map(pset -> keys(axis_paropt_flat1(pset)), psets)
+    keys_opt = MTKHelpers.tuplejoin(keys_p...)
+    #k = first(keys_opt) # k = keys_opt[2]
+    popt_mean = ComponentVector(;
+        ((k, mean(getproperty.(popt_indiv, k))) for k in keys_opt)...)
+    fixed = popt_mean[keys_p.fixed]
+    random = popt_mean[keys_p.random]
+    ax_site = Axis(indiv_ids)
+    #@show indiv_ids, ax_site
+    indiv = ComponentMatrix(
+        hcat((popt[keys_p.indiv] for popt in popt_indiv)...),
+        axis_paropt_flat1(psets.indiv), ax_site
+    )
+    #popt = first(popt_indiv)
+    indiv_random = ComponentMatrix(
+        hcat((popt[keys_p.random] ./ popt_mean[keys_p.random] for popt in popt_indiv)...),
+        axis_paropt_flat1(psets.random), ax_site
+    )
+    (;fixed, random, indiv, indiv_random )
+end
+
+function get_init_mixedmodel(;fixed::ComponentVector, random::ComponentVector, 
+    indiv::ComponentMatrix, priors_σ,
+    indiv_random = missing
+    )
+    random_σ = random_σ = ComponentVector(;((k, mean(priors_σ[k])) for k in keys(random))...)
+    if ismissing(indiv_random)
+        n_indiv = size(indiv,2)
+        ax_random = first(getaxes(random))
+        ax_site = getaxes(indiv)[2]
+        indiv_random = ComponentMatrix(fill(1.0, length(random), n_indiv), ax_random, ax_site) 
+    end
     ComponentVector(;fixed, random, 
-        random_σ = ComponentVector( fill(0.0, length(random)), ax_random),              # uncertainty of random effects
+        random_σ,
         indiv = flatten_cm(indiv),
-        indiv_random = flatten_cm(indiv_rand),
+        indiv_random = flatten_cm(indiv_random),
     )
 end
+
+
 
 """
     flatten_cm(cm::ComponentMatrix)
@@ -166,5 +204,22 @@ function flatten_cm(cm::ComponentMatrix)
     template = ComponentVector(;((k, cm[:,k]) for k in keys(getaxes(cm)[2]))...)
     ComponentArray(vec(cm), getaxes(template))
 end
+
+# MAYBE - move to proper place
+# function map_keys2(FUN, cv::ComponentVector; rewrap::Val{is_rewrap}=Val(true)) where {is_rewrap}
+#     f1 = (k) -> begin
+#         ret = FUN(k, cv[k])
+#         eltype(ret) != Union{} ||
+#             error("For mapping empty keys, provide a proper eltype." *
+#                   "Did you accidentally write key=[] instead of e.g. Float64[] ?")
+#         (k, ret)
+#     end
+#     if is_rewrap
+#         gen = (f1(k) for k in keys(cv))
+#         ComponentVector(;gen...)
+#     else
+#         map(k -> FUN(k, cv[k]), keys(cv))
+#     end
+# end
 
 
