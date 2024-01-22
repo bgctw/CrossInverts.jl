@@ -1,7 +1,8 @@
 tmpf = () -> begin
     pop!(LOAD_PATH)
     push!(LOAD_PATH, joinpath(pwd(), "test/"))
-    push!(LOAD_PATH, expanduser("~/julia/devtools_$(VERSION.major).$(VERSION.minor)"))
+    #push!(LOAD_PATH, expanduser("~/julia/devtools_$(VERSION.major).$(VERSION.minor)"))
+    push!(LOAD_PATH, expanduser("@dev_$(VERSION.major).$(VERSION.minor)"))
 end
 
 using Test, SafeTestsets
@@ -16,6 +17,8 @@ const GROUP = get(ENV, "GROUP", "All") # defined in in CI.yml
         @time @safetestset "test_sitedata" include("test_sitedata.jl")
         #@safetestset "Tests" include("test/test_sitedata_vec.jl")
         @time @safetestset "test_sitedata_vec" include("test_sitedata_vec.jl")
+        #@safetestset "Tests" include("test/test_util_mixed.jl")
+        @time @safetestset "test_util_mixed" include("test_util_mixed.jl")
     end
     if GROUP == "All" || GROUP == "JET"
         #@safetestset "Tests" include("test/test_JET.jl")

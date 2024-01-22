@@ -9,10 +9,11 @@ using Distributions
 
 @named sv = CP.samplesystem_vec()
 @named sys = embed_system(sv)
-scenario = (system = :CrossInverts_samplesystem_vec,)
+inv_case = SampleSystemVecCase()
+scenario = NTuple{0, Symbol}()
 
-@testset "get_sitedata" begin
-    res = get_sitedata(Val(:CrossInverts_samplesystem_vec), :A; 
+@testset "get_indivdata" begin
+    res = get_indivdata(inv_case, :A;
         scenario = CA.ComponentVector())
     # keys for different data streams
     @test all((:sv₊x, :sv₊dec2) .∈ Ref(keys(res)))
@@ -22,8 +23,7 @@ scenario = (system = :CrossInverts_samplesystem_vec,)
 end;
 
 @testset "get_priors_dict and dict_to_cv" begin
-    priors_dict = get_priors_dict(Val(:CrossInverts_samplesystem_vec), :A; 
-        scenario = CA.ComponentVector())
+    priors_dict = get_priors_dict(inv_case, :A; scenario)
     @test all((:sv₊x, :sv₊p, :sv₊τ, :sv₊i) .∈ Ref(keys(priors_dict)))
     @test eltype(values(priors_dict)) <: Distribution
     #
@@ -42,21 +42,24 @@ end;
     popt = CA.ComponentVector(state = (sv₊x = [1.0, 1.0],),
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
     random = flatten1(popt)[(:sv₊x, :sv₊τ)]
-    indiv = flatten1(popt)[(:sv₊p,)] 
-    res = setup_tools_scenario(:A; scenario, popt, system = sys, keys_indiv = keys(indiv));
+    indiv = flatten1(popt)[(:sv₊p,)]
+    res_prior = setup_tools_scenario(:A; inv_case, scenario, system = sys,
+        keys_indiv = keys(indiv))
+    res = setup_tools_scenario(:A; inv_case, scenario, system = sys,
+        keys_indiv = keys(indiv), u0 = popt.state, p = popt.par)
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater
     @test eltype(res.priors_indiv) <: Distribution
     @test keys(res.priors_indiv) == keys(indiv)
-    @test axis_paropt(res.pset) == CA.getaxes(popt)[1]
+    @test axis_paropt(res.pset_u0p) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()
-    priors_pop = setup_priors_pop(keys(fixed), keys(random); scenario);
+    priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario)
     @test eltype(priors_pop.fixed) <: Distribution
     @test keys(priors_pop.fixed) == keys(fixed)
     @test eltype(priors_pop.random) <: Distribution
     @test keys(priors_pop.random) == keys(random)
-    @test eltype(priors_pop.random_σstar) <: Distribution
-    @test keys(priors_pop.random_σstar) == keys(random)
+    @test eltype(priors_pop.random_σ) <: Distribution
+    @test keys(priors_pop.random_σ) == keys(random)
 end;

@@ -13,7 +13,7 @@ end
 
 # loads initial parameters and u0 from site_fits.jld2, saved from optim.jl
 #@run 
-#chn_popt_u, probci, psetci = fsample(site, targetlim, scenario; n_sample=10, n_burnin=0); chn = chn_popt_u;
+#chn_popt_u, probci, psetci = fsample(indiv_id, targetlim, scenario; n_sample=10, n_burnin=0); chn = chn_popt_u;
 function sample_slc_cross(df_site_u0_p, targetlim, scenario;
         keys_opt_fixed = (), keys_opt_random = (), priors_σ_dict = get_priors_σ_dict(),
         n_sample = 750, n_burnin = 100, kwargs...)
@@ -22,7 +22,7 @@ function sample_slc_cross(df_site_u0_p, targetlim, scenario;
     tools1 = first(df.tools)
     popt_names = symbols_paropt(tools1.psetci)
     psets = setup_psets_fixed_random_indiv(keys_opt_fixed,
-    keys_opt_random; system = tools1.system, popt = missing ) #TODO #popt_names )
+        keys_opt_random; system = tools1.system, popt = missing) #TODO #popt_names )
     popt0 = get_popt_from_tools(df.tools, psets)
     priors_opt = get_priors_opt_from_tools(df.tools, psets, priors_σ_dict)
     # function barrier so that all types are know inside
@@ -30,7 +30,7 @@ function sample_slc_cross(df_site_u0_p, targetlim, scenario;
     #  - pass df.tools as tuple, so that length can be inferred
     sim_sols_probs = gen_sim_sols_probs(; tools = (df.tools...,), solver, psets)
     tmodel = gen_model_cross(;
-        #site=(df.site...,), 
+        #indiv_id=(df.indiv_id...,), 
         tools = (df.tools...,), obs = df.obs, priors_opt,
         scenario, solver, psets, sim_sols_probs)
     # vi = Turing.VarInfo(tmodel); spl = Turing.SampleFromPrior(); tmp = tmodel(vi, spl)
@@ -84,34 +84,34 @@ i_call_once = () -> begin
 end
 
 """
-Add the following columns DataFrame of with a row for each site.
-- sitedata: DataFrameRow of litter and stocks for given site for :top30 (see get_sitedata_df)
+Add the following columns DataFrame of with a row for each indiv_id.
+- sitedata: DataFrameRow of litter and stocks for given indiv_id for :top30 (see get_sitedata_df)
 - obs: NamedTuple of cstocks, cn, cp
-- tools: return of setup_tools_scenario for site, targetlim, scenario, u0, p 
+- tools: return of setup_tools_scenario for indiv_id, targetlim, scenario, u0, p 
 
-The following columns need to be present already: site, u0, p.
+The following columns need to be present already: indiv_id, u0, p.
 The initial parameters u0 and parameters p need to be given as ComponentVectors.
 """
 function add_sitedata_obs_tools!(df_site_u0_p, targetlim, scenario)
     df = df_site_u0_p #shorthand
     if :sitedata ∉ names(df)
         sd_df = subset(get_sitedata_df(), :layer => ByRow(==(:top30)))
-        fsitedata = (site) -> sd_df[findfirst(==(site), sd_df.site), :]
-        transform!(df, :site => ByRow(fsitedata) => :sitedata)
+        fsitedata = (indiv_id) -> sd_df[findfirst(==(indiv_id), sd_df.indiv_id), :]
+        transform!(df, :indiv_id => ByRow(fsitedata) => :sitedata)
     end
     f_obs = (sd) -> SLVector(cstocks = sd[:SOC], cn = sd[:CN_SOM], cp = sd[:CP_SOM])
     transform!(df, :sitedata => ByRow(f_obs) => :obs)
-    _, _, popt_names = setup_popt_scenario(first(df.site),
+    _, _, popt_names = setup_popt_scenario(first(df.indiv_id),
         targetlim,
         scenario;
         sitedata = first(df.sitedata))
-    f_tools = (site, u0, p) -> setup_tools_scenario(site,
+    f_tools = (indiv_id, u0, p) -> setup_tools_scenario(indiv_id,
         targetlim,
         scenario,
         u0,
         p,
         popt_names)
-    transform!(df, [:site, :u0, :p] => ByRow(f_tools) => :tools)
+    transform!(df, [:indiv_id, :u0, :p] => ByRow(f_tools) => :tools)
 end
 
 function get_popt_from_tools(tools, psets)
@@ -131,7 +131,7 @@ function get_popt_from_tools(tools, psets)
         (axis_paropt(psets.random), CA.FlatAxis()))
     popt_random = CA.ComponentVector(vec(mean(convert(Array, popt_random_sites), dims = 2)),
         axis_paropt(psets.random))
-    # the random offsets are multiplicator hence compute r_eff = site/r_mean for each col
+    # the random offsets are multiplicator hence compute r_eff = indiv_id/r_mean for each col
     popt_indiv_random = hcat((r_site ./ popt_random for
                               r_site in eachcol(popt_random_sites))...) |>
                         x -> CA.ComponentArray(x, CA.getaxes(popt_random_sites))
@@ -146,9 +146,9 @@ function get_popt_from_tools(tools, psets)
 end
 
 """
-Return priors whose order matches the fixed, random, and site parameters.
+Return priors whose order matches the fixed, random, and indiv_id parameters.
 Gets the priors for fixed and ranodm parameters from first tools entry,
-While the site priors are mapped from each entry in the tools-vector.
+While the indiv_id priors are mapped from each entry in the tools-vector.
 
 `priors_σ_dict` can be obtained from function get_priors_σ_dict.
 """
@@ -160,7 +160,7 @@ function get_priors_opt_from_tools(tools, psets, priors_σ_dict)
         random = [tools1.priors_dict[p] for p in symbols_paropt(psets.random)],
         random_σstar = [priors_σ_dict[p] for p in symbols_paropt(psets.random)],
         indiv = map(tools) do tools
-            # maybe different for each site
+            # maybe different for each indiv_id
             [tools.priors_dict[p] for p in symbols_paropt(psets.indiv)]
         end)
 end
@@ -296,7 +296,7 @@ end
 """
     get_parameter_keys(psets; n_indiv)
 
-Get all the parameters given the ProblemParameterSetters (fixed, random, site)
+Get all the parameters given the ProblemParameterSetters (fixed, random, indiv_id)
 given in NamedTuple psets for Dict entries
 - :fixed    
 - :random    
@@ -311,12 +311,14 @@ function get_parameter_keys(psets; n_indiv)
         :random_σstar => [Symbol("σstar_" * string(pname))
                           for pname in symbols_paropt(psets.random)],
         :indiv => [Symbol("s" * string(x[2]) * "_" * string(x[1]))
-                   for x in IterTools.product_distribution(symbols_paropt(psets.indiv), 1:n_indiv)],
+                   for x in IterTools.product_distribution(symbols_paropt(psets.indiv),
+            1:n_indiv)],
         :indiv_random => [Symbol("r" * string(x[2]) * "_" * string(x[1]))
                           for x in IterTools.product_distribution(symbols_paropt(psets.random),
             1:n_indiv)],
         :u0 => [Symbol("u0" * string(x[2]) * "_" * string(x[1]))
-                for x in IterTools.product_distribution(symbols_state(psets.fixed), 1:n_indiv)])
+                for x in IterTools.product_distribution(symbols_state(psets.fixed),
+            1:n_indiv)])
     return parkeys_dict
 end
 
@@ -363,9 +365,9 @@ in the system. To avoid duplicated names, e.g. for factor and coefficient,
 several Chains objects are returned.
 
 Returns a NamedTuple of 
-- `chn_sites_popt`: with sections `site` (parameters free between sites) and 
-  `site_coef` (parameters with random effects: mean multiplied by site specific factor)
--  `chn_sites_random`: site specific random factors
+- `chn_sites_popt`: with sections `indiv_id` (parameters free between sites) and 
+  `site_coef` (parameters with random effects: mean multiplied by indiv_id specific factor)
+-  `chn_sites_random`: indiv_id specific random factors
 -  `chn_sites_u0`: initial states
 """
 function extract_chains_site(chn::MCMCChains.Chains)
@@ -389,7 +391,7 @@ function extract_chains_site(chn::MCMCChains.Chains)
     a_u0 = reshape(tmp, (nsample, size(tmp, 2) ÷ n_indiv, n_indiv))
     #
     popt = hcat(MCMCChains.Chains(a_sites, collect(keys_opt.keys_opt_sites),
-            (:site => keys_opt.keys_opt_sites,)),
+            (:indiv_id => keys_opt.keys_opt_sites,)),
         MCMCChains.Chains(a_site_coef, collect(keys_opt.keys_opt_random),
             (:site_coef => keys_opt.keys_opt_sites,)))
     random = MCMCChains.Chains(a_sites_random, collect(keys_opt.keys_opt_random))
@@ -398,7 +400,8 @@ function extract_chains_site(chn::MCMCChains.Chains)
 end
 
 function add_obs_cross(lc, chn::MCMCChains.Chains, sites, var_obs;
-        tools = NamedTuple((site => setup_tools_scenario(site, lc...) for site in sites)),
+        tools = NamedTuple((indiv_id => setup_tools_scenario(indiv_id, lc...)
+                            for indiv_id in sites)),
         kwargs...)
     add_obs_cross(chn, var_obs; tools, kwargs...)
 end
@@ -421,7 +424,7 @@ function add_obs_cross(chn::MCMCChains.Chains, var_obs;
     #
     b_fixed = Array(chn, :fixed)
     b_random = Array(chn, :random)
-    b_sites = Array(chn_sites.popt, :site; append_chains = false) |>
+    b_sites = Array(chn_sites.popt, :indiv_id; append_chains = false) |>
               RecursiveArrayTools.VectorOfArray
     b_sites_random = Array(chn_sites.random; append_chains = false) |>
                      RecursiveArrayTools.VectorOfArray

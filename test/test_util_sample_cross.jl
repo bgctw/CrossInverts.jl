@@ -17,7 +17,7 @@ using Logging, LoggingExtras
 scenario = (system = :CrossInverts_samplesystem_vec,)
 
 fixed = CA.ComponentVector(sv₊p = 1:3)
-random = CA.ComponentVector(sv₊x = [2.1,2.2], sv₊τ = 0.1)
+random = CA.ComponentVector(sv₊x = [2.1, 2.2], sv₊τ = 0.1)
 indiv = CA.ComponentVector(sv₊i = 0.2)
 popt = vcat_statesfirst(fixed, random, indiv; system)
 
@@ -28,24 +28,21 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 
 toolsA = setup_tools_scenario(:A; scenario, popt, system);
 psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
-df_site_u0_p = DataFrame(
-    site = [:A, :B, :C],
-    u0 = fill((label_state(toolsA.pset, toolsA.problem.u0)), 3),  
-    p = fill((label_par(toolsA.pset, toolsA.problem.p)), 3),   
-)
+df_site_u0_p = DataFrame(indiv_id = [:A, :B, :C],
+    u0 = fill((label_state(toolsA.pset, toolsA.problem.u0)), 3),
+    p = fill((label_par(toolsA.pset, toolsA.problem.p)), 3))
 df = copy(df_site_u0_p)
 
-
 @testset "gen_compute_indiv_rand" begin
-    _compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)    
+    _compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)
     tmp = _compute_indiv_rand(toolsA.problem.u0, toolsA.problem.p)
     @test keys(tmp) == keys(random)
     tmp[:sv₊x] = popt[:sv₊x] ./ random[:sv₊x] # popt -> toolsA -> df_site.u0/p
 end
 
-_compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)    
+_compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)
 DataFrames.transform!(df,
-[:u0, :p] => DataFrames.ByRow(_compute_indiv_rand) => :indiv_random)
+    [:u0, :p] => DataFrames.ByRow(_compute_indiv_rand) => :indiv_random)
 
 # extract the parameters to optimize that are individual-specific to clumns :indiv
 _extract_indiv = (u0, p) -> vcat(u0, p)[symbols_paropt(psets.indiv)]
@@ -59,8 +56,8 @@ DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
 @testset "simsols" begin
     solver = AutoTsit5(Rodas5P())
     sim_sols_probs = gen_sim_sols_probs(; tools = df.tool, psets, solver)
-    sols_probs = sim_sols_probs(fixed, random, hcat(df.indiv...), hcat(df.indiv_random...));
-    sol = first(sols_probs).sol;
+    sols_probs = sim_sols_probs(fixed, random, hcat(df.indiv...), hcat(df.indiv_random...))
+    sol = first(sols_probs).sol
     solA0 = solve(toolsA.problem, solver) # same as with initial popt -> recomputed
     solA0 == sol
     #sol.t
@@ -71,13 +68,11 @@ DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
         fixed,
         random,
         indiv = hcat(df.indiv...),
-        indiv_random = hcat(df.indiv_random...),
-        )
-    sols = sim_sols(poptl);
-    sol = first(sols);
+        indiv_random = hcat(df.indiv_random...),)
+    sols = sim_sols(poptl)
+    sol = first(sols)
     solA0 == sol
 end;
-
 
 @testset "sample_slc_cross" begin
     lc = (targetlim = :lim_P,
@@ -86,18 +81,18 @@ end;
     n_sample = 2
     #n_sample = 90
     df_site_u0_p = with_logger(MinLevelLogger(current_logger(), Logging.Warn)) do
-        #site = last(sites)
-        res_optims = pmap(sites) do site
-            slc = (; site, lc...)
+        #indiv_id = last(sites)
+        res_optims = pmap(sites) do indiv_id
+            slc = (; indiv_id, lc...)
             #(;u0, p, res_opt) = CP.optim_slc(slc; iterations=2, iterations2=2);
             (; u0, p, res_opt) = CP.optim_slc(slc; iterations = 400, iterations2 = 100)
-            (; site, u0, p)
+            (; indiv_id, u0, p)
         end
         df_site_u0_p = DataFrame(res_optims)
     end
     sd_df = subset(CP.get_sitedata_df(), :layer => ByRow(==(:top30)))
-    fsitedata = (site) -> sd_df[findfirst(==(site), sd_df.site), :]
-    transform!(df_site_u0_p, :site => ByRow(fsitedata) => :sitedata)
+    fsitedata = (indiv_id) -> sd_df[findfirst(==(indiv_id), sd_df.indiv_id), :]
+    transform!(df_site_u0_p, :indiv_id => ByRow(fsitedata) => :sitedata)
     tools1 = with_logger(MinLevelLogger(current_logger(), Logging.Warn)) do
         tools1 = setup_tools_scenario(sites[1], lc...; sitedata = df_site_u0_p.sitedata[1])
     end
@@ -114,7 +109,7 @@ end;
     @test all(sort(names(chn, :fixed)) .== sort(collect(keys_opt_fixed)))
     @test all(sort(names(chn, :random)) .== sort(collect(keys_opt_random)))
     @test all([Symbol("σstar_$p") for p in keys_opt_random] .∈
-              Ref(names(chn, :random_σstar)))
+              Ref(names(chn, :random_σ)))
     par_names = symbols_paropt(tools1.psetci)
     psite_names = setdiff(par_names, union(keys_opt_fixed, keys_opt_random))
     nsite = length(sites)
@@ -175,7 +170,7 @@ end;
 end;
 
 tmpf = () -> begin
-    describe(MCMCChains.Chains(chn, [:random_σstar]))
-    chn2 = MCMCChains.Chains(chn, [:random_σstar])
+    describe(MCMCChains.Chains(chn, [:random_σ]))
+    chn2 = MCMCChains.Chains(chn, [:random_σ])
     describe(MCMCChains.get(chn, :lp).lp)
 end
