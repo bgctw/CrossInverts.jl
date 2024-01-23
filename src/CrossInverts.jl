@@ -15,8 +15,9 @@ using MCMCChains: MCMCChains
 using Random, StableRNGs
 using PDMats: PDiagMat
 
-export setup_tools_indiv, get_indivdata, get_priors_dict, dict_to_cv
 export AbstractCrossInversionCase
+export setup_tools_indiv, get_indivdata, get_priors_dict, dict_to_cv
+export get_indiv_parameters_from_priors
 include("site_data.jl")
 
 export SampleSystem1Case
@@ -27,8 +28,7 @@ include("example_system_vec.jl")
 
 export setup_psets_fixed_random_indiv, gen_sim_sols_probs, gen_sim_sols
 export setup_priors_pop
-export gen_compute_indiv_rand
-export sample_and_add_ranef
+# export gen_compute_indiv_rand
 export get_obs_uncertainty_dist_type
 include("util_mixed.jl")
 
