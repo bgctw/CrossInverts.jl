@@ -281,7 +281,7 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
     map(kc -> check_equal_across_indiv(kc, mixed_indiv), (:fixed, :random))
     psets = setup_psets_mixed(mixed_keys; system, popt = first(mixed_indiv).popt)
     popt_indiv = [label_paropt(psets.popt, mixed.popt) for mixed in mixed_indiv] 
-    # need to construct problem to propertly account for default values
+    # need to construct problem to properly account for default values
     sdict = get_system_symbol_dict(system)
     problem_indiv = map(popt_indiv) do popt
         # TODO: scalarize might not work for discretized
