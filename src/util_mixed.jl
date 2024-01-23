@@ -1,7 +1,13 @@
 """
-Given `inv_case`, the keys for different mixed effects, individual state (`u0`, `p`), 
-and individual priors, then setup
-- `mixed`: mixed effects NamedTuple(fixed, random, indiv, indiv_random)
+setup_tools_mixed(p_indiv::DataFrame;
+        inv_case, scenario = NTuple{0, Symbol}(), 
+        system, mixed_keys,
+        psets = setup_psets_mixed(inv_case; scenario, mixed_keys, system))
+
+Given `inv_case`, the keys for different mixed effects, individual state 
+(`u0`, `p` given with p_indiv), 
+and individual priors, sets up NamedTuple of 
+- `mixed`: mixed effects `NamedTuple(fixed, random, indiv, indiv_random)`
   from individual's states and parameters
 - `df`: DataFrame `p_indiv` extended by columns
   - `paropt`: optimized parameters extracted from indiviudals state and parameters
@@ -11,8 +17,9 @@ and individual priors, then setup
 - `sample0`: ComponentVector of an initial sample
   This can be used to name (attach_axis) a sample from MCMCChains object 
 """
-function setup_tools_mixed(p_indiv, priors_dict_indiv;
-        inv_case, scenario, system, mixed_keys,
+function setup_tools_mixed(p_indiv::DataFrame;
+        inv_case, scenario = NTuple{0, Symbol}(), 
+        system, mixed_keys,
         psets = setup_psets_mixed(inv_case; scenario, mixed_keys, system))
     df = copy(p_indiv)
     _extract_paropt = (u0, p) -> get_paropt_labeled(psets.popt, u0, p; flat1 = Val(true))
@@ -54,69 +61,104 @@ end
 #     end # let
 # end
 
+# """
+#     setup_psets_fixed_random_indiv(fixed, random; system, popt)
+
+# Setup the ProblemParSetters for given system and parameter names.
+# Assume, that parameters are fiven in flat format, i.e. not state and par labels.
+# Make sure, that popt holds state entries first.
+
+# Only the entries in fixed and random that are actually occurring
+# in popt_names are set.
+# The indiv parameters are the difference set between popt_names and the others.
+
+# Returns a NamedTuple with `ODEProblemParSetter` for `fixed`, `random`, and `indiv` parameters.
+# """
+# function setup_psets_fixed_random_indiv(keys_fixed, keys_random; system, popt)
+#     fixed1 = intersect(keys(popt), keys_fixed)
+#     random1 = intersect(keys(popt), keys_random)
+#     indiv1 = setdiff(keys(popt), union(fixed1, random1))
+#     psets = (;
+#         fixed = ODEProblemParSetter(system, popt[fixed1]),
+#         random = ODEProblemParSetter(system, popt[random1]),
+#         indiv = ODEProblemParSetter(system, popt[indiv1]),
+#         popt = ODEProblemParSetter(system, popt),)
+#     # k = :state
+#     # cvs = (popt,fixed,random)
+#     # tup = map(keys(popt)) do k
+#     #     keys_k = (;zip((:popt, :fixed, :random), map(x -> haskey(x,k) ? keys(x[k]) : NTuple{0,Symbol}(), cvs))...)
+#     #     fixed1 = intersect(keys_k.popt, keys_k.fixed)
+#     #     random1 = intersect(keys_k.popt, keys_k.random)
+#     #     opt_site1 = setdiff(keys_k.popt, union(fixed1, random1))
+#     #     popt[k][opt_site1]
+#     #     #isempty(opt_site1) ? ComponentVector() : opt_site1
+#     # end
+#     # indiv = ComponentVector(;zip(keys(popt),tup)...)
+#     # psets = (;
+#     #     fixed = ODEProblemParSetter(system, Axis(fixed1)),
+#     #     random = ODEProblemParSetter(system, Axis(random1)),
+#     #     indiv = ODEProblemParSetter(system, Axis(opt_site1)))
+#     # psets = (;
+#     #     fixed = ODEProblemParSetter(system, fixed),
+#     #     random = ODEProblemParSetter(system, random),
+#     #     indiv = ODEProblemParSetter(system, indiv))
+#     return psets
+# end
+
 """
-    setup_psets_fixed_random_indiv(fixed, random; system, popt)
-
-Setup the ProblemParSetters for given system and parameter names.
-Assume, that parameters are fiven in flat format, i.e. not state and par labels.
-Make sure, that popt holds state entries first.
-
-Only the entries in fixed and random that are actually occurring
-in popt_names are set.
-The indiv parameters are the difference set between popt_names and the others.
-
-Returns a NamedTuple with `ODEProblemParSetter` for `fixed`, `random`, and `indiv` parameters.
-"""
-function setup_psets_fixed_random_indiv(keys_fixed, keys_random; system, popt)
-    fixed1 = intersect(keys(popt), keys_fixed)
-    random1 = intersect(keys(popt), keys_random)
-    indiv1 = setdiff(keys(popt), union(fixed1, random1))
-    psets = (;
-        fixed = ODEProblemParSetter(system, popt[fixed1]),
-        random = ODEProblemParSetter(system, popt[random1]),
-        indiv = ODEProblemParSetter(system, popt[indiv1]),
-        popt = ODEProblemParSetter(system, popt),)
-    # k = :state
-    # cvs = (popt,fixed,random)
-    # tup = map(keys(popt)) do k
-    #     keys_k = (;zip((:popt, :fixed, :random), map(x -> haskey(x,k) ? keys(x[k]) : NTuple{0,Symbol}(), cvs))...)
-    #     fixed1 = intersect(keys_k.popt, keys_k.fixed)
-    #     random1 = intersect(keys_k.popt, keys_k.random)
-    #     opt_site1 = setdiff(keys_k.popt, union(fixed1, random1))
-    #     popt[k][opt_site1]
-    #     #isempty(opt_site1) ? ComponentVector() : opt_site1
-    # end
-    # indiv = ComponentVector(;zip(keys(popt),tup)...)
-    # psets = (;
-    #     fixed = ODEProblemParSetter(system, Axis(fixed1)),
-    #     random = ODEProblemParSetter(system, Axis(random1)),
-    #     indiv = ODEProblemParSetter(system, Axis(opt_site1)))
-    # psets = (;
-    #     fixed = ODEProblemParSetter(system, fixed),
-    #     random = ODEProblemParSetter(system, random),
-    #     indiv = ODEProblemParSetter(system, indiv))
-    return psets
-end
-
-function setup_psets_mixed(inv_case::AbstractCrossInversionCase;
+    setup_psets_mixed(mixed_keys; system, popt)
+    
+    setup_psets_mixed(inv_case::AbstractCrossInversionCase;
         scenario, mixed_keys, system,
         priors_dict = get_priors_dict(inv_case, missing; scenario),)
-    mean_priors_mixed = mean_priors(; mixed_keys..., priors_dict, system)
+
+Creates the `ODEProblemUpdaters` given several optimized parameters and a system.
+Creates a separate Updater for each class of optimized parameters in mixed_keys.
+
+The second variant creates the optimized parameters from the means of 
+the prior distributions, obtained for given CrossInversionCase.
+
+"""
+function setup_psets_mixed(inv_case::AbstractCrossInversionCase;
+        scenario, mixed_keys, system)
+    priors_dict = get_priors_dict(inv_case, missing; scenario)
+    mean_priors_mixed = mean_priors(; mixed_keys, priors_dict, system)
     setup_psets_mixed(mixed_keys; system, mean_priors_mixed.popt)
 end
 function setup_psets_mixed(mixed_keys; system, popt)
     gen = ((kc, ODEProblemParSetter(system, popt[mixed_keys[kc]])) for
            kc in keys(mixed_keys))
-    psets = (; gen..., popt = ODEProblemParSetter(system, popt),)
+    psets = (; gen..., popt = ODEProblemParSetter(system, popt))
     return psets
 end
 
-# function setup_psets_fixed_random_indiv(system, chn::MCMCChains.Chains)
-#     @error "not fully implemented yet."
-#     opt = extract_popt_names(chn)
-#     setup_psets_fixed_random_indiv(system,
-#         opt[(:par_names, :fixed, :random)]...)
-# end
+"""
+    mean_priors(; mixed_keys, priors_dict, system)
+
+Compute the means of prior distributions for the parameters listed in
+components of mixed_keys and add another popt component that aggregates
+all the components, but states first.
+
+## Arguments
+- `mixed_keys`: NamedTuple with entry `NTuple{Symbol}` for each class of 
+  optimized parameters
+- `priors_dict`: Dictionary of prior distribution for parameters
+- `system`: The AbstractSystem used to distinguish states and parameters 
+
+Returns a NamedTuple with same entries as mixed_keys holding ComponentVectors     
+of means of the parameter distributions.
+"""
+function mean_priors(; mixed_keys, priors_dict, system)
+    #(_comp,_keys) = first(pairs(mixed_keys))
+    gen = (begin
+        priors_k = dict_to_cv(_keys, priors_dict)
+        meandist2componentarray(priors_k)
+    end
+           for (_comp, _keys) in pairs(mixed_keys))
+    ntup = (; zip(keys(mixed_keys), gen)...)
+    popt = vcat_statesfirst(ntup...; system)
+    (; ntup..., popt)
+end
 
 """
     sim_sols_probs(fixed, random, indiv, indiv_random)
