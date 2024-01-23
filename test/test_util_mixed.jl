@@ -99,8 +99,14 @@ end;
 model_cross = gen_model_cross(;
     inv_case, tools = df.tools, priors_pop, psets, sim_sols_probs, scenario, solver);
 
+tmpf = () -> begin    
+    # for finding initial step size use some more adaptive steps
+    chn = Turing.sample(model_cross, Turing.NUTS(1000, 0.65), n_sample,
+    init_params = collect(sample0))
+end
+
 #with_logger(error_on_warning) do
-chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 1e-2), n_sample,
+chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 0.2), n_sample,
     init_params = collect(sample0))
 #end
 
