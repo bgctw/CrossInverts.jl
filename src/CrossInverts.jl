@@ -15,7 +15,7 @@ using MCMCChains: MCMCChains
 using Random, StableRNGs
 using PDMats: PDiagMat
 
-export setup_tools_scenario, get_indivdata, get_priors_dict, dict_to_cv
+export setup_tools_indiv, get_indivdata, get_priors_dict, dict_to_cv
 export AbstractCrossInversionCase
 include("site_data.jl")
 
@@ -32,6 +32,7 @@ export sample_and_add_ranef
 export get_obs_uncertainty_dist_type
 include("util_mixed.jl")
 
+export setup_tools_mixed
 export gen_model_cross
 include("util_sample.jl")
 

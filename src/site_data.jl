@@ -24,7 +24,7 @@
 # function setup_tools_scenario_u0_popt(indiv_id, targetlim, scenario, u0, popt,
 #     kwargs...
 #     )
-#     tools = setup_tools_scenario(indiv_id, targetlim, scenario; kwargs...)
+#     tools = setup_tools_indiv(indiv_id, targetlim, scenario; kwargs...)
 #     pset_u0 = ODEProblemParSetter(tools.system, CA.Axis(strip_trailing_zero.(keys(u0))))
 #     pset_popt = ODEProblemParSetter(tools.system, CA.Axis(keys(popt)))
 #     tools = merge(tools, (;problem=set_u0_popt(
@@ -75,7 +75,7 @@ end
 """
 TODO describe
 """
-function setup_tools_scenario(indiv_id;
+function setup_tools_indiv(indiv_id;
         inv_case::AbstractCrossInversionCase, scenario,
         system,
         sitedata = get_indivdata(inv_case, indiv_id; scenario),
@@ -122,7 +122,7 @@ function setup_priors_pop(keys_fixed, keys_random;
         fixed = dict_to_cv(keys_fixed, priors_dict),
         random = dict_to_cv(keys_random, priors_dict),
         random_σ = dict_to_cv(keys_random, priors_random_dict),
-        # the indiv priors can be indiv_id-specific, they are setup in setup_tools_scenario
+        # the indiv priors can be indiv_id-specific, they are setup in setup_tools_indiv
     )
 end
 

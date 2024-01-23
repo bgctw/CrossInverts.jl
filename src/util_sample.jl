@@ -178,7 +178,7 @@ end
 function get_init_mixedmodel(; fixed::ComponentVector, random::ComponentVector,
         indiv::ComponentMatrix, priors_σ,
         indiv_random = missing)
-    random_σ = random_σ = ComponentVector(;
+    random_σ = ComponentVector(;
         ((k, mean(priors_σ[k])) for k in keys(random))...)
     if ismissing(indiv_random)
         n_indiv = size(indiv, 2)

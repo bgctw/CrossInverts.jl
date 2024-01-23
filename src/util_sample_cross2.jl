@@ -87,7 +87,7 @@ end
 Add the following columns DataFrame of with a row for each indiv_id.
 - sitedata: DataFrameRow of litter and stocks for given indiv_id for :top30 (see get_sitedata_df)
 - obs: NamedTuple of cstocks, cn, cp
-- tools: return of setup_tools_scenario for indiv_id, targetlim, scenario, u0, p 
+- tools: return of setup_tools_indiv for indiv_id, targetlim, scenario, u0, p 
 
 The following columns need to be present already: indiv_id, u0, p.
 The initial parameters u0 and parameters p need to be given as ComponentVectors.
@@ -105,7 +105,7 @@ function add_sitedata_obs_tools!(df_site_u0_p, targetlim, scenario)
         targetlim,
         scenario;
         sitedata = first(df.sitedata))
-    f_tools = (indiv_id, u0, p) -> setup_tools_scenario(indiv_id,
+    f_tools = (indiv_id, u0, p) -> setup_tools_indiv(indiv_id,
         targetlim,
         scenario,
         u0,
@@ -400,7 +400,7 @@ function extract_chains_site(chn::MCMCChains.Chains)
 end
 
 function add_obs_cross(lc, chn::MCMCChains.Chains, sites, var_obs;
-        tools = NamedTuple((indiv_id => setup_tools_scenario(indiv_id, lc...)
+        tools = NamedTuple((indiv_id => setup_tools_indiv(indiv_id, lc...)
                             for indiv_id in sites)),
         kwargs...)
     add_obs_cross(chn, var_obs; tools, kwargs...)

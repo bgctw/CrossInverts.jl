@@ -37,15 +37,15 @@ end;
     @test keys(priors) == reverse(keys(popt.par))
 end;
 
-@testset "setup_tools_scenario and setup_priors_pop" begin
+@testset "setup_tools_indiv and setup_priors_pop" begin
     #popt = CA.ComponentVector(state = (sv₊x1=1.0, sv₊x2=1.0), par=(sv₊τ=1.0, sv₊i=1.0))
     popt = CA.ComponentVector(state = (sv₊x = [1.0, 1.0],),
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
     random = flatten1(popt)[(:sv₊x, :sv₊τ)]
     indiv = flatten1(popt)[(:sv₊p,)]
-    res_prior = setup_tools_scenario(:A; inv_case, scenario, system = sys,
+    res_prior = setup_tools_indiv(:A; inv_case, scenario, system = sys,
         keys_indiv = keys(indiv))
-    res = setup_tools_scenario(:A; inv_case, scenario, system = sys,
+    res = setup_tools_indiv(:A; inv_case, scenario, system = sys,
         keys_indiv = keys(indiv), u0 = popt.state, p = popt.par)
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test res.problemupdater isa NullProblemUpdater

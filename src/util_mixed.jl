@@ -167,3 +167,35 @@ function sample_and_add_ranef(problem,
     paropt_r = get_paropt_labeled(psets.random, problem) .* ranef
     remake(problem, paropt_r, psets.random)
 end
+
+"""
+Given `inv_case`, the keys for different mixed effects, individual state (`u0`, `p`), 
+and individual priors, then setup
+- `mixed`: mixed effects NamedTuple(fixed, random, indiv, indiv_random)
+  from individual's states and parameters
+- `df`: DataFrame `p_indiv` extended by columns
+  - `paropt`: optimized parameters extracted from indiviudal's state and parameters
+  - `tools`: tools initialized for each site (see `setup_tools_indiv`)
+- `psets`: `NTuple{ODEProblemParSetter}` for each mixed component
+- `priors_pop`: `ComponentVector` of priors on population level (fixed, random, random_σ)
+- `sample0`: ComponentVector of an initial sample
+  This can be used to name (attach_axis) a sample from MCMCChains object 
+"""
+function setup_tools_mixed(p_indiv, priors_dict_indiv; 
+    inv_case, scenario, system, component_keys)
+    mean_priors_mixed = mean_priors(; component_keys..., priors_dict=first(values(priors_dict_indiv)), system)
+    psets = setup_psets_fixed_random_indiv(keys(mean_priors_mixed.fixed),
+        keys(mean_priors_mixed.random); system, mean_priors_mixed.popt)
+    df = copy(p_indiv)
+    _extract_paropt = (u0, p) -> get_paropt_labeled(psets.popt, u0, p; flat1=Val(true))
+    DataFrames.transform!(df,
+        [:u0, :p] => DataFrames.ByRow(_extract_paropt) => :paropt)
+    mixed = extract_mixed_effects(psets, df.paropt)
+    priors_pop = setup_priors_pop(keys(mixed.fixed), keys(mixed.random); inv_case, scenario)
+    _setuptools = (indiv_id, u0, p) -> setup_tools_indiv(indiv_id; inv_case, scenario,
+        system, u0, p, keys_indiv=component_keys.indiv)
+    _tools = _setuptools(df.indiv_id[1], df.u0[1], df.p[1])
+    DataFrames.transform!(df, [:indiv_id, :u0, :p] => DataFrames.ByRow(_setuptools) => :tools)
+    sample0 = get_init_mixedmodel(psets, df.paropt, priors_pop.random_σ; indiv_ids = df.indiv_id)
+    (; mixed, df, psets, priors_pop, sample0)
+end
