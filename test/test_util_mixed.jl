@@ -22,25 +22,23 @@ mixed_keys = (;
 
 indiv_ids = (:A, :B, :C)
 #p_indiv = CP.get_indiv_parameters(inv_case)
-priors_dict_indiv =     
-p_indiv = df = get_indiv_parameters_from_priors(inv_case; indiv_ids, mixed_keys,
-    scenario, system)
+#priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)    
+p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
+    system)
 
 # get the sizes of componentVectors from prior means
 # actual values are overridden below from site, after psets.opt is available
-(mixed, df, psets, priors_pop, sample0) = setup_tools_mixed(p_indiv, priors_dict_indiv;
+(mixed, df, psets, priors_pop, sample0) = setup_tools_mixed(p_indiv;
     inv_case, scenario, system, mixed_keys)
 (fixed, random, indiv, indiv_random) = mixed
 
-@testset "setup_psets_fixed_random_indiv" begin
-    priors_dict_indiv = Dict(id => get_priors_dict(inv_case, id; scenario)
-    for id in p_indiv.indiv_id)
+@testset "setup_psets_mixed" begin
+    priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
     mean_priors_mixed = CP.mean_priors(;
-        mixed_keys...,
+        mixed_keys,
         priors_dict = first(values(priors_dict_indiv)),
         system)
-    psets = setup_psets_fixed_random_indiv(keys(mean_priors_mixed.fixed),
-        keys(mean_priors_mixed.random); system, mean_priors_mixed.popt)
+    psets = setup_psets_mixed(mixed_keys; system, mean_priors_mixed.popt)
     @test all((:fixed, :random, :indiv, :popt) .∈ Ref(keys(psets)))
     (_fixed, _random, _indiv1, _popt) = mean_priors_mixed
     @test psets.fixed isa ODEProblemParSetter

@@ -60,18 +60,6 @@ Concrete types should implement
 """
 abstract type AbstractCrossInversionCase end
 
-function mean_priors(; system, priors_dict, component_keys...)
-    #(_comp,_keys) = first(pairs(component_keys))
-    gen = (begin
-        priors_k = dict_to_cv(_keys, priors_dict)
-        m = meandist2componentarray(priors_k)
-    end
-           for (_comp, _keys) in pairs(component_keys))
-    ntup = (; zip(keys(component_keys), gen)...)
-    popt = vcat_statesfirst(ntup...; system)
-    (; ntup..., popt)
-end
-
 """
 TODO describe
 """
@@ -114,10 +102,14 @@ function setup_tools_indiv(indiv_id;
     (; pset_u0p, problemupdater, priors_indiv, problem, sitedata)
 end
 
+"""
+Put priors for fixed, random, and random_σ into a ComponentVector.
+Default Priors dist is acuqired for site `missing`.    
+"""
 function setup_priors_pop(keys_fixed, keys_random;
-        inv_case::AbstractCrossInversionCase, scenario)
-    priors_dict = get_priors_dict(inv_case, :unknown_site; scenario)
-    priors_random_dict = get_priors_random_dict(inv_case; scenario)
+        inv_case::AbstractCrossInversionCase, scenario,
+        priors_dict = get_priors_dict(inv_case, missing; scenario),
+        priors_random_dict = get_priors_random_dict(inv_case; scenario))
     (;
         fixed = dict_to_cv(keys_fixed, priors_dict),
         random = dict_to_cv(keys_random, priors_dict),
@@ -276,7 +268,7 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
     # priors_dict may differ across indiv -> mixed.random and mixed.popt differ
     mixed_indiv = (;
         zip(indiv_ids,
-            mean_priors(; mixed_keys..., priors_dict, system) for
+            mean_priors(; mixed_keys, priors_dict, system) for
             priors_dict in values(priors_dict_indiv))...)
     map(kc -> check_equal_across_indiv(kc, mixed_indiv), (:fixed, :random))
     psets = setup_psets_mixed(mixed_keys; system, popt = first(mixed_indiv).popt)
