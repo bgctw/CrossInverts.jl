@@ -60,48 +60,49 @@ function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symb
     dd
 end
 
-function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
-    @named sv = samplesystem_vec()
-    @named system = embed_system(sv)
-    #_dict_nums = get_system_symbol_dict(system)
-    # setup a problem, numbers do not matter, because set below from prior mean
-    t = [0.2, 0.4, 1.0, 2.0]
-    p_siteA = ComponentVector(sv₊x = [1.1, 2.1], sv₊i = 4)
-    st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
-    p_new = Dict(sv.i .=> p_siteA.sv₊i)
-    problem = ODEProblem(system, st, (0.0, 2.0), p_new)
+# function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
+#     #TODO replace by get_indiv_parameters_from_priors
+#     @named sv = samplesystem_vec()
+#     @named system = embed_system(sv)
+#     #_dict_nums = get_system_symbol_dict(system)
+#     # setup a problem, numbers do not matter, because set below from prior mean
+#     t = [0.2, 0.4, 1.0, 2.0]
+#     p_siteA = ComponentVector(sv₊x = [1.1, 2.1], sv₊i = 4)
+#     st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
+#     p_new = Dict(sv.i .=> p_siteA.sv₊i)
+#     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
 
-    priors_dict = get_priors_dict(inv_case, :A; scenario)
-    _m = Dict(k => mean(v) for (k, v) in priors_dict)
-    fixed = ComponentVector(sv₊p = _m[:sv₊p])
-    random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
-    indiv = ComponentVector(sv₊i = _m[:sv₊i])
-    popt = vcat_statesfirst(fixed, random, indiv; system)
-    psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
-    pset = ODEProblemParSetter(system, popt)
-    problem = remake(problem, popt, pset)
+#     priors_dict = get_priors_dict(inv_case, :A; scenario)
+#     _m = Dict(k => mean(v) for (k, v) in priors_dict)
+#     fixed = ComponentVector(sv₊p = _m[:sv₊p])
+#     random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
+#     indiv = ComponentVector(sv₊i = _m[:sv₊i])
+#     popt = vcat_statesfirst(fixed, random, indiv; system)
+#     psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
+#     pset = ODEProblemParSetter(system, popt)
+#     problem = remake(problem, popt, pset)
 
-    p_A = (label_state(pset, problem.u0), label_par(pset, problem.p)) # Tuple (u0, p)
-    # multiply random effects for sites B and C
-    priors_random = dict_to_cv(keys(random), get_priors_random_dict(inv_case; scenario))
-    rng = StableRNG(234)
-    _get_u0p_ranef = () -> begin
-        probo = sample_and_add_ranef(problem, priors_random, rng; psets)
-        (label_state(pset, probo.u0), label_par(pset, probo.p))
-    end
-    #_get_u0p_ranef()
-    p_indiv = rename(DataFrame([
-            (:A, p_A...),
-            (:B, _get_u0p_ranef()...),
-            (:C, _get_u0p_ranef()...),
-        ]), ["indiv_id", "u0", "p"])
-    # ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
-    if :modify_fixed ∈ scenario
-        # modify fixed parameters of third indiv_id
-        p_indiv.p[3].sv₊p = p_indiv.p[3].sv₊p .* 1.05
-    end
-    p_indiv
-end
+#     p_A = (label_state(pset, problem.u0), label_par(pset, problem.p)) # Tuple (u0, p)
+#     # multiply random effects for sites B and C
+#     priors_random = dict_to_cv(keys(random), get_priors_random_dict(inv_case; scenario))
+#     rng = StableRNG(234)
+#     _get_u0p_ranef = () -> begin
+#         probo = sample_and_add_ranef(problem, priors_random, rng; psets)
+#         (label_state(pset, probo.u0), label_par(pset, probo.p))
+#     end
+#     #_get_u0p_ranef()
+#     p_indiv = rename(DataFrame([
+#             (:A, p_A...),
+#             (:B, _get_u0p_ranef()...),
+#             (:C, _get_u0p_ranef()...),
+#         ]), ["indiv_id", "u0", "p"])
+#     # ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
+#     if :modify_fixed ∈ scenario
+#         # modify fixed parameters of third indiv_id
+#         p_indiv.p[3].sv₊p = p_indiv.p[3].sv₊p .* 1.05
+#     end
+#     p_indiv
+# end
 
 function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
         scenario = NTuple{0, Symbol}())
@@ -111,14 +112,21 @@ function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
 end
 
 gen_site_data_vec = () -> begin
-    # using in test_util_mixed
+    # using and setup in test_util_mixed
+    @named sv = CP.samplesystem_vec()
+    @named system = embed_system(sv)    
     inv_case = SampleSystemVecCase()
     scenario = NTuple{0, Symbol}()
-    p_indiv = CP.get_indiv_parameters(inv_case)
+    mixed_keys = (;
+    fixed = (:sv₊p,),
+    random = (:sv₊x, :sv₊τ),
+    indiv = (:sv₊i,),)
+    indiv_ids = (:A, :B, :C)
+    #p_indiv = CP.get_indiv_parameters(inv_case)
+    p_indiv = get_indiv_parameters_from_priors(inv_case; indiv_ids, mixed_keys,
+    scenario, system)
     #using DistributionFits, StableRNGs, Statistics
     # other usings from test_util_mixed
-    @named sv = CP.samplesystem_vec()
-    @named system = embed_system(sv)
     _dict_nums = get_system_symbol_dict(system)
     # setup a problem, numbers do not matter, because set below from prior mean
     t = [0.2, 0.4, 1.0, 2.0]
@@ -128,7 +136,7 @@ gen_site_data_vec = () -> begin
     #indiv_id = first(keys(p_indiv))
     streams = (:sv₊x, :sv₊dec2)
     dtypes = Dict(s => get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams)
-    unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => PDiagMat(log.([1.1, 1.1])))
+    unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => convert(Matrix,PDiagMat(log.([1.1, 1.1]))))
     d_noise = Dict(s => begin
         unc = unc_par[s]
         m = unc isa AbstractMatrix ? fill(1.0, size(unc, 1)) : 1.0
@@ -174,11 +182,12 @@ function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Sym
                     [1.9744553950945931, 2.049494086682751],
                     [1.806115091024414, 1.4088107777562726],
                 ],
-                obs_unc = [[0.09531017980432493 0.0;
-                        0.0 0.09531017980432493],
+                obs_unc = [
                     [0.09531017980432493 0.0; 0.0 0.09531017980432493],
                     [0.09531017980432493 0.0; 0.0 0.09531017980432493],
-                    [0.09531017980432493 0.0; 0.0 0.09531017980432493]],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                ],
                 obs_true = [
                     [1.4528506430586314, 1.502300054146255],
                     [1.2174085538439976, 1.1706665606844529],
@@ -201,67 +210,69 @@ function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Sym
                 ])),
         B = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
-                    [1.3716397862102392, 1.7915277956458109],
-                    [2.685917136119328, 2.136372707813559],
-                    [2.1722359214511475, 1.7436450983505765],
-                    [1.8964297976426767, 1.4463477610356354],
+                    [2.0681893973690264, 2.76555266499398],
+                    [3.002213659926257, 2.738988031384357],
+                    [2.2024778579768736, 1.8863521088263966],
+                    [1.8970493973645883, 1.4592874111525584],
                 ],
-                obs_unc = [[0.09531017980432493 0.0;
-                        0.0 0.09531017980432493],
+                obs_unc = [
                     [0.09531017980432493 0.0; 0.0 0.09531017980432493],
                     [0.09531017980432493 0.0; 0.0 0.09531017980432493],
-                    [0.09531017980432493 0.0; 0.0 0.09531017980432493]],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                ],
                 obs_true = [
-                    [0.7354003274776955, 0.5106350752742588],
-                    [0.8934732629412274, 0.5571376159331084],
-                    [1.0210070121376924, 0.6147203718520219],
-                    [1.0346450294407676, 0.6309679710670936],
+                    [1.4319499386364825, 1.4846599446224278],
+                    [1.2097697867481565, 1.1597529395039063],
+                    [1.0512489486634184, 0.7574273823278419],
+                    [1.035264629162679, 0.6439076211840167],
                 ]),
             sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
-                    2.9483735593375626,
-                    1.5182461428508836,
-                    1.775466226561185,
-                    2.6438829307566296,
+                    5.286801850397016,
+                    2.9649984441621826,
+                    2.1180756620394585,
+                    2.6749483017364,
                 ],
                 obs_unc = [1.1, 1.1, 1.1, 1.1],
                 obs_true = [
-                    1.2259271236346332,
-                    1.337569916447068,
-                    1.4758139692997125,
-                    1.5148210284231054,
+                    3.5643554146940866,
+                    2.784322217758367,
+                    1.8184234047779861,
+                    1.5458863994028762,
                 ])),
         C = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
-                    [2.408717132341871, 1.8247536086704808],
-                    [2.147234967910222, 1.6415300804716022],
-                    [2.054292483902587, 1.458270046707626],
-                    [1.8269139195451993, 1.269531560860636],
+                    [2.2350643301157382, 2.3130035358019856],
+                    [2.0736166580761624, 1.9436035468232888],
+                    [2.0472448291872816, 1.529804596360485],
+                    [1.8267544248914431, 1.2760177129115113],
                 ],
-                obs_unc = [[0.09531017980432493 0.0;
-                        0.0 0.09531017980432493],
+                obs_unc = [
                     [0.09531017980432493 0.0; 0.0 0.09531017980432493],
                     [0.09531017980432493 0.0; 0.0 0.09531017980432493],
-                    [0.09531017980432493 0.0; 0.0 0.09531017980432493]],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                    [0.09531017980432493 0.0; 0.0 0.09531017980432493],
+                ],
                 obs_true = [
-                    [1.6546696442921036, 1.0142624991455902],
-                    [1.2997665477667184, 0.8687245061027491],
-                    [1.045799188511272, 0.688508228251252],
-                    [1.0185418838255835, 0.6376584078402582],
+                    [1.4810168420659708, 1.502512426277095],
+                    [1.226148237932659, 1.1707979724544357],
+                    [1.0387515337959667, 0.7600427779041109],
+                    [1.0183823891718273, 0.6441445598911335],
                 ]),
             sv₊dec2 = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
-                    2.85448380378512,
-                    2.4685315214191292,
-                    6.098311221019019,
-                    3.4167039510572197,
+                    4.026668907719985,
+                    3.1937462073315097,
+                    6.2700505882164785,
+                    3.4322758342125548,
                 ],
                 obs_unc = [1.1, 1.1, 1.1, 1.1],
                 obs_true = [
-                    2.4350303541530116,
-                    2.085624326580895,
-                    1.6529630507765165,
-                    1.5308833561133446,
+                    3.607215458087877,
+                    2.8108390124932754,
+                    1.8247024179739757,
+                    1.5464552392686794,
                 ])))
     data[indiv_id]
 end

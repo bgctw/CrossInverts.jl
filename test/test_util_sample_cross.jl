@@ -26,7 +26,7 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 # indiv = CA.ComponentVector(par=(sv₊i = 0.2,))
 # popt = merge_subvectors(fixed, random, indiv; mkeys=(:state, :par))
 
-toolsA = setup_tools_scenario(:A; scenario, popt, system);
+toolsA = setup_tools_indiv(:A; scenario, popt, system);
 psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 df_site_u0_p = DataFrame(indiv_id = [:A, :B, :C],
     u0 = fill((label_state(toolsA.pset, toolsA.problem.u0)), 3),
@@ -49,7 +49,7 @@ _extract_indiv = (u0, p) -> vcat(u0, p)[symbols_paropt(psets.indiv)]
 tmp = _extract_indiv(df.u0[1], df.p[1])
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_extract_indiv) => :indiv)
 
-_setuptools = (u0, p) -> setup_tools_scenario(:A; scenario, popt, system, u0, p);
+_setuptools = (u0, p) -> setup_tools_indiv(:A; scenario, popt, system, u0, p);
 _setuptools(df.u0[1], df.p[1]);
 DataFrames.transform!(df, [:u0, :p] => DataFrames.ByRow(_setuptools) => :tool)
 
@@ -94,7 +94,7 @@ end;
     fsitedata = (indiv_id) -> sd_df[findfirst(==(indiv_id), sd_df.indiv_id), :]
     transform!(df_site_u0_p, :indiv_id => ByRow(fsitedata) => :sitedata)
     tools1 = with_logger(MinLevelLogger(current_logger(), Logging.Warn)) do
-        tools1 = setup_tools_scenario(sites[1], lc...; sitedata = df_site_u0_p.sitedata[1])
+        tools1 = setup_tools_indiv(sites[1], lc...; sitedata = df_site_u0_p.sitedata[1])
     end
     #
     keys_opt_fixed = (:s₊a_E, :s₊k_mN_L, :s₊ϵ, :s₊ϵ_tvr)

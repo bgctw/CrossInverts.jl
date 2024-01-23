@@ -84,7 +84,7 @@ function gen_model_cross(;
                     ne = length(prand_σ[k])
                     d = ne == 1 ?
                         fit_mean_Σ(LogNormal, 1, prand_σ[k]) :
-                        fit_mean_Σ(MvLogNormal, fill(1, ne), PDiagMat(prand_σ[k].^2))
+                        fit_mean_Σ(MvLogNormal, fill(1, ne), PDiagMat(prand_σ[k] .^ 2))
                     indiv_random[k, i_indiv] ~ d
                     #indiv_random[k,i_indiv] = rand(d)
                 end
@@ -178,7 +178,7 @@ end
 function get_init_mixedmodel(; fixed::ComponentVector, random::ComponentVector,
         indiv::ComponentMatrix, priors_σ,
         indiv_random = missing)
-    random_σ = random_σ = ComponentVector(;
+    random_σ = ComponentVector(;
         ((k, mean(priors_σ[k])) for k in keys(random))...)
     if ismissing(indiv_random)
         n_indiv = size(indiv, 2)
