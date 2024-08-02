@@ -1,7 +1,7 @@
 name = "CrossInverts"
 uuid = "2efadbd5-da09-4a26-a84a-7f8cb3b3c09d"
 authors = ["Thomas Wutzler <twutz@bgc-jena.mpg.de> and contributors"]
-version = "1.0.0-DEV"
+version = "2.0.0"
 
 [deps]
 Chain = "8be319e6-bccf-4806-a6f7-6fae938471bc"
@@ -30,8 +30,8 @@ DistributionFits = "0.3.7"
 Distributions = "0.25.106"
 LoggingExtras = "1.0.3"
 MCMCChains = "5.7.1, 6"
-MTKHelpers = "0.5.1"
-ModelingToolkit = "9.5"
+MTKHelpers = "0.6"
+ModelingToolkit = "9"
 OrdinaryDiffEq = "6.58.2"
 PDMats = "0.11"
 Random = "1.6"
