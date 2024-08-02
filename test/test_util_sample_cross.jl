@@ -29,8 +29,8 @@ popt = vcat_statesfirst(fixed, random, indiv; system)
 toolsA = setup_tools_indiv(:A; scenario, popt, system);
 psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 df_site_u0_p = DataFrame(indiv_id = [:A, :B, :C],
-    u0 = fill((label_state(toolsA.pset, toolsA.problem.u0)), 3),
-    p = fill((label_par(toolsA.pset, toolsA.problem.p)), 3))
+    u0 = fill((get_state_labeled(toolsA.pset, toolsA.problem)), 3),
+    p = fill((get_par_label(toolsA.pset, toolsA.problem)), 3))
 df = copy(df_site_u0_p)
 
 @testset "gen_compute_indiv_rand" begin
@@ -138,6 +138,7 @@ end;
 
     tmpsols = sim_sites(popt0)
     tmpsols[1][end]
+    # TODO think about labelling solution 
     uend = map(sol -> label_state(psets.fixed, sol[:, end]), tmpsols)
     chnu0 = Chains(chn, :u0)
 

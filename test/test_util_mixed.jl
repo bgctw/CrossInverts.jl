@@ -26,7 +26,7 @@ indiv_ids = (:A, :B, :C)
 p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
     system)
 
-# get the sizes of componentVectors from prior means
+# get the sizes of ComponentVectors from prior means
 # actual values are overridden below from site, after psets.opt is available
 (mixed, df, psets, priors_pop, sample0) = setup_tools_mixed(p_indiv;
     inv_case, scenario, system, mixed_keys)
@@ -45,11 +45,11 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
     _tools = setup_tools_indiv(:A; inv_case, scenario, system,
         keys_indiv = mixed_keys.indiv,
         u0 = _popt[(:sv₊x,)], p = _popt[(:sv₊p, :sv₊τ, :sv₊i)])
-    @test get_paropt_labeled(_tools.pset_u0p, _tools.problem; flat1 = Val(true)) == _popt
-    @test get_paropt_labeled(psets.fixed, _tools.problem; flat1 = Val(true)) == _fixed
-    @test get_paropt_labeled(psets.random, _tools.problem; flat1 = Val(true)) == _random
-    @test get_paropt_labeled(psets.indiv, _tools.problem; flat1 = Val(true)) == _indiv1
-    @test get_paropt_labeled(psets.popt, _tools.problem; flat1 = Val(true)) == _popt
+    @test flatten1(get_paropt_labeled(_tools.pset_u0p, _tools.problem)) == _popt
+    @test flatten1(get_paropt_labeled(psets.fixed, _tools.problem)) == _fixed
+    @test flatten1(get_paropt_labeled(psets.random, _tools.problem)) == _random
+    @test flatten1(get_paropt_labeled(psets.indiv, _tools.problem)) == _indiv1
+    @test flatten1(get_paropt_labeled(psets.popt, _tools.problem)) == _popt
 end;
 
 solver = AutoTsit5(Rodas5P())
@@ -58,8 +58,8 @@ sim_sols_probs = gen_sim_sols_probs(; df.tools, psets, solver)
 @testset "simsols" begin
     sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
     (sol, problem_opt) = sols_probs[1]
-    popt1 = get_paropt_labeled(psets.popt, df.tools[1].problem; flat1 = Val(true))
-    popt2 = get_paropt_labeled(psets.popt, problem_opt; flat1 = Val(true))
+    popt1 = flatten1(get_paropt_labeled(psets.popt, df.tools[1].problem))
+    popt2 = flatten1(get_paropt_labeled(psets.popt, problem_opt))
     @test popt2[keys(random)] == random .* indiv_random[:, 1] 
     @test popt2[mixed_keys.indiv] == indiv[:, 1]
     @test popt2[keys(fixed)] == fixed 

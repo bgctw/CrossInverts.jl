@@ -4,7 +4,7 @@ using CrossInverts: CrossInverts as CP
 using MTKHelpers
 using OrdinaryDiffEq, ModelingToolkit
 using ComponentArrays: ComponentArrays as CA
-#using ComponentArrays
+using SymbolicIndexingInterface: SymbolicIndexingInterface as SII
 
 @named m2 = CP.samplesystem_vec()
 @named sys = embed_system(m2)
@@ -13,7 +13,9 @@ using ComponentArrays: ComponentArrays as CA
     st = Symbolics.scalarize(m2.x .=> [1.0, 2.0])
     p_new = Symbolics.scalarize(m2.p .=> [2.1, 2.2, 2.3])
     prob = ODEProblem(sys, st, (0.0, 10.0), p_new)
-    @test prob.p == [3.0, 0.1, 2.1, 2.2, 2.3]
+    @test SII.getp(sys, :m2₊τ)(prob) == 3.0
+    @test SII.getp(sys, :m2₊i)(prob) == 0.1
+    @test SII.getp(sys, m2.p)(prob) == [2.1, 2.2, 2.3]
     sol = solve(prob, Tsit5())
     # first solution statevector equals the Pair.second entry in the mapping of initial state
     @test first(sol[m2.x]) == last.(st)

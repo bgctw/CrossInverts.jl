@@ -70,13 +70,13 @@ function setup_tools_indiv(indiv_id;
         tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
         u0 = nothing,
         p = nothing,
-        keys_indiv = NTuple{0, Symbol}(),)
+        keys_indiv = NTuple{0, Symbol}())
     #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
     priors_dict = get_priors_dict(inv_case, indiv_id; scenario)
     # default u0 and p from expected value of priors
     if isnothing(u0)
-        priors_u0 = dict_to_cv(unique(symbol_op.(states(system))), priors_dict)
+        priors_u0 = dict_to_cv(unique(symbol_op.(unknowns(system))), priors_dict)
         u0 = meandist2componentarray(priors_u0)
     end
     if isnothing(p)
@@ -113,8 +113,7 @@ function setup_priors_pop(keys_fixed, keys_random;
     (;
         fixed = dict_to_cv(keys_fixed, priors_dict),
         random = dict_to_cv(keys_random, priors_dict),
-        random_σ = dict_to_cv(keys_random, priors_random_dict),
-        # the indiv priors can be indiv_id-specific, they are setup in setup_tools_indiv
+        random_σ = dict_to_cv(keys_random, priors_random_dict)        # the indiv priors can be indiv_id-specific, they are setup in setup_tools_indiv
     )
 end
 
@@ -151,14 +150,14 @@ function get_indivdata end
 """
     get_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)
 
-Provide a dictionary (par -> Distribution) for prior parameters and states.
+Provide a dictionary (par -> Distribution) for prior parameters and unknowns.
 """
 function get_priors_dict end
 
 """
     get_priors_random_dict(::AbstractCrossInversionCase; scenario)
 
-Provide a dictionary (par -> Distribution) for prior parameters and states.
+Provide a dictionary (par -> Distribution) for prior parameters and unknowns.
 """
 function get_priors_random_dict end
 
@@ -254,55 +253,56 @@ Construct a DataFrame with parameters across sites with
 
 ## Value
 DataFrame with columns `indiv_id`, `u0` and `p`, with all states and parameters of the
-given system as `ComponentVector` labelled by `label_state` and `label_par`.
+given system as `ComponentVector` labelled by `get_state_labeled` and `get_par_labeled`.
 
 """
 function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
         indiv_ids, mixed_keys,
-        scenario = NTuple{0, Symbol}(), 
+        scenario = NTuple{0, Symbol}(),
         system,
         rng = StableRNG(234),
         priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario),
-        priors_random_dict = get_priors_random_dict(inv_case; scenario),)
+        priors_random_dict = get_priors_random_dict(inv_case; scenario))
     priors_random = dict_to_cv(mixed_keys.random, priors_random_dict)
     # priors_dict may differ across indiv -> mixed.random and mixed.popt differ
     mixed_indiv = (;
         zip(indiv_ids,
-            mean_priors(; mixed_keys, priors_dict, system) for
+            mean_priors(; mixed_keys, priors_dict, system)
+            for
             priors_dict in values(priors_dict_indiv))...)
     map(kc -> check_equal_across_indiv(kc, mixed_indiv), (:fixed, :random))
     psets = setup_psets_mixed(mixed_keys; system, popt = first(mixed_indiv).popt)
-    popt_indiv = [label_paropt(psets.popt, mixed.popt) for mixed in mixed_indiv] 
+    popt_indiv = [label_paropt(psets.popt, mixed.popt) for mixed in mixed_indiv]
     # need to construct problem to properly account for default values
     sdict = get_system_symbol_dict(system)
     problem_indiv = map(popt_indiv) do popt
         # TODO: scalarize might not work for discretized
         # because state may not contain locations at the boundaries
-        u0s_vec = [Symbolics.scalarize(sdict[k] .=> popt.state[k]) for
-                k in keys(popt.state)]
+        u0s_vec = [Symbolics.scalarize(sdict[k] .=> popt.state[k])
+                   for
+                   k in keys(popt.state)]
         u0s = reduce(vcat, u0s_vec)
         ps_vec = [Symbolics.scalarize(sdict[k] .=> popt.par[k]) for
-                k in keys(popt.par)]
+                  k in keys(popt.par)]
         ps = reduce(vcat, ps_vec)
         ODEProblem(system, u0s, (0.0, 2.0), ps)
     end
     # setup DataFrame and modify u0,p on non-first-row afterwards
     df = DataFrame(indiv_id = collect(indiv_ids), problem = problem_indiv)
-        # u0 = [label_state(psets.popt, problem.u0) for problem in problem_indiv],
-        # p = [label_par(psets.popt, problem.p)  for problem in problem_indiv], )
     _resample_random = (problem) -> begin
         random = get_paropt_labeled(psets.random, problem)
-        r = random  .* sample_ranef(rng, priors_random)
+        r = random .* sample_ranef(rng, priors_random)
         probo = remake(problem, r, psets.random)
-        (label_state(psets.popt, probo.u0), label_par(psets.popt, probo.p))
+        (get_state_labeled(psets.popt, probo), get_par_labeled(psets.popt, probo))
     end
     DataFrames.transform!(df,
         [:problem] => DataFrames.ByRow(_resample_random) => [:u0, :p])
     # in the first row 
     prob1 = df.problem[1]
     # for the first row remove the random effects and stick to the mean
-    df[1,[:u0,:p]] .= (label_state(psets.popt, prob1.u0), label_par(psets.popt, prob1.p))
-    df[:,Not(:problem)]
+    df[1, [:u0, :p]] .= (get_state_labeled(psets.popt, prob1),
+        get_par_labeled(psets.popt, prob1))
+    df[:, Not(:problem)]
 end
 
 function check_equal_across_indiv(kc, mixed_indiv)
@@ -310,11 +310,11 @@ function check_equal_across_indiv(kc, mixed_indiv)
         first(getaxes(mixed_indiv[1][kc])), FlatAxis())
     rows_cols_equal = map(x -> all(x .== first(x)), eachrow(tmp))
     all(rows_cols_equal) && return ()
-    @warn("Expected $kc effects priors to be equal across individuals, " *
-          "but means differed in rows $(findall(rows_cols_equal)): $(tmp)")
+    @warn("Expected $kc effects priors to be equal across individuals, "*
+    "but means differed in rows $(findall(rows_cols_equal)): $(tmp)")
 end
 
 function get_priors_dict_indiv(inv_case, indiv_ids; scenario)
-    Dict(id => get_priors_dict(inv_case, id; scenario) for 
-        id in indiv_ids)    
+    Dict(id => get_priors_dict(inv_case, id; scenario) for
+    id in indiv_ids)
 end

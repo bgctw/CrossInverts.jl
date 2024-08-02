@@ -112,7 +112,7 @@ function gen_model_cross(;
                     Turing.@addlogprob! -Inf
                     return
                 end
-                local parl = label_par(psets.fixed, problem_opt.p) #@inferred label_par(psetci, problem_opt.p)
+                local parl = get_par_labeled(psets.fixed, problem_opt) #@inferred label_par(psetci, problem_opt.p)
                 # for accessing solution at 100 time points need to store full solution
                 for stream in streams
                     obss = obs[i_indiv][stream]

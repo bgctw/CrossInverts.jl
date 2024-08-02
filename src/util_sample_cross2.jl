@@ -246,7 +246,7 @@ function gen_model_cross(;
                     Turing.@addlogprob! -Inf
                     return
                 end
-                local parl = label_par(first(tools).psetci, problem_opt.p) #@inferred label_par(psetci, problem_opt.p)
+                local parl = get_par_labeled(first(tools).psetci, problem_opt) #@inferred 
                 # for accessing solution at 100 time points need to store full solution
                 #   here (saveat) only the final solution was stored to save allocations
                 pred = getobs(sol, parl) #getobs_avg(sol, parl) #@inferred getobs(sol, parl)
@@ -329,7 +329,6 @@ function compute_u0_chains(chn_orig, sim_sites; popt0, keys_u0, tend)
         poptl = CA.ComponentArray(x, CA.getaxes(popt0))
         #sols = sim_sites(poptl; tspan=(0,0)); sols[1].t
         sols = sim_sites(poptl; saveat = tend)
-        #uend = map(sol -> label_state(psets.fixed, sol[:,end]), sols)
         uends = map(y -> y[end], sols)
     end
     # to be save for keys_u0 given in flat vector, reshape to matrix

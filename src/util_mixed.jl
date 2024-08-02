@@ -22,7 +22,17 @@ function setup_tools_mixed(p_indiv::DataFrame;
         system, mixed_keys,
         psets = setup_psets_mixed(inv_case; scenario, mixed_keys, system))
     df = copy(p_indiv)
-    _extract_paropt = (u0, p) -> get_paropt_labeled(psets.popt, u0, p; flat1 = Val(true))
+    u0_numdict = system_num_dict(df.u0[1], system)
+    p_numdict = system_num_dict(df.p[1], system)
+    prob = ODEProblem(system, u0_numdict, (0,2), p_numdict);
+    _extract_paropt = let prob=prob, system=system, pset = psets.popt
+        (u0, p) -> begin
+            u0_numdict = system_num_dict(u0, system)
+            p_numdict = system_num_dict(p, system)
+            probo = remake(prob, u0 = u0_numdict, p = p_numdict)
+            flatten1(get_paropt_labeled(pset, probo))
+        end        
+    end
     DataFrames.transform!(df,
         [:u0, :p] => DataFrames.ByRow(_extract_paropt) => :paropt)
     mixed = extract_mixed_effects(psets, df.paropt)
@@ -194,12 +204,14 @@ function gen_sim_sols_probs(; tools, psets, solver = AutoTsit5(Rodas5()), kwargs
         (fixed, random, indiv, indiv_random; kwargs_indiv = kwargs_indiv_default, kwargs...) -> begin
             map(1:n_indiv) do i_indiv
                 problem_opt = problems_indiv[i_indiv] # no need to copy, in update_statepar 
-                problem_opt = @inferred remake(problem_opt, fixed, psets.fixed)
+                # remake Dict not inferred yet: problem_opt = @inferred remake(problem_opt, fixed, psets.fixed)
+                problem_opt = remake(problem_opt, fixed, psets.fixed)
                 problem_opt = remake(problem_opt,
                     random .* indiv_random[:, i_indiv], psets.random)
                 problem_opt = remake(problem_opt, indiv[:, i_indiv], psets.indiv)
                 # make sure to use problemupdater on the last update
-                problem_opt = @inferred problemupdater(problem_opt)
+                #problem_opt = @inferred problemupdater(problem_opt)
+                problem_opt = problemupdater(problem_opt)
                 #if !isempty(kwargs); problem_opt = remake(problem_opt; kwargs...); end
                 #local parl = label_par(psetci, problem_opt.p) #@inferred label_par(psetci, problem_opt.p)
                 #suppress does not work with MCMCThreads() sampling
