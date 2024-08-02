@@ -10,7 +10,8 @@ using MCMCChains
 using Test
 using Logging, LoggingExtras
 #using Infiltrator
-#using MTKHelpers
+using MTKHelpers
+using ModelingToolkit, OrdinaryDiffEq 
 
 @named sv = CP.samplesystem_vec()
 @named system = embed_system(sv)
@@ -21,17 +22,22 @@ random = CA.ComponentVector(sv₊x = [2.1, 2.2], sv₊τ = 0.1)
 indiv = CA.ComponentVector(sv₊i = 0.2)
 popt = vcat_statesfirst(fixed, random, indiv; system)
 
+psets = setup_psets_mixed(keys(fixed), keys(random); system, popt)
+
+
 # fixed = CA.ComponentVector(par=(sv₊p = 1:3,))
 # random = CA.ComponentVector(state=(sv₊x = [2.1,2.2],), par=(sv₊τ = 0.1,))
 # indiv = CA.ComponentVector(par=(sv₊i = 0.2,))
 # popt = merge_subvectors(fixed, random, indiv; mkeys=(:state, :par))
 
 toolsA = setup_tools_indiv(:A; scenario, popt, system);
-psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
 df_site_u0_p = DataFrame(indiv_id = [:A, :B, :C],
     u0 = fill((get_state_labeled(toolsA.pset, toolsA.problem)), 3),
     p = fill((get_par_label(toolsA.pset, toolsA.problem)), 3))
 df = copy(df_site_u0_p)
+
+
+
 
 @testset "gen_compute_indiv_rand" begin
     _compute_indiv_rand = gen_compute_indiv_rand(toolsA.pset, random)

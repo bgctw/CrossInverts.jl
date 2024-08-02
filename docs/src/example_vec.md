@@ -1,12 +1,29 @@
-struct SampleSystemVecCase <: AbstractCrossInversionCase end
+```@meta
+CurrentModule = CrossInverts
+```
+
+# Walkthrough
+
+This example demonstrates how 
+using an example system with symbolic array state and symbolic array parameters.
+
+## Example system
+
+```@example doc
+using ModelingToolkit, OrdinaryDiffEq 
+using ModelingToolkit: t_nounits as t, D_nounits as D
+using ComponentArrays: ComponentArrays as CA
+using MTKHelpers
+using CrossInverts
+using DistributionFits
+using PDMats: PDiagMat
+using Turing
 
 function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     n_comp = 2
     @parameters t
     D = Differential(t)
     @variables x(..)[1:n_comp] dec2(..) #dx(t)[1:2]  # observed dx now can be accessed
-    #sts = @variables x[1:n_comp](t) 
-    #ps = @parameters τ=τ p[1:n_comp]=p i=i       # parameters
     ps = @parameters τ=τ i=i p[1:3]=p
     sts = vcat([x(t)[i] for i in 1:n_comp], dec2(t))
     eq = [
@@ -14,14 +31,45 @@ function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
         D(x(t)[2]) ~ i - dec2(t),
         dec2(t) ~ p[3] * x(t)[2], # observable
     ]
-    #ODESystem(eq, t; name)
-    #ODESystem(eq, t, sts, [τ, p[1], p[2], i]; name)
     sys = ODESystem(eq, t, sts, vcat(ps...); name)
-    #sys = ODESystem(eq, t, sts, ps; name)
-    return sys
 end
 
-function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
+@named sv = samplesystem_vec()
+@named system = embed_system(sv)
+```
+
+
+First, we define which parameters should be calibrated as fixed, random, or
+individual parameters. Note, that we can use symbols rather than Symbolics,
+and can use symbolic arrarys rather than requiring the scalarized version.
+```@example doc
+mixed_keys = (;
+    fixed = (:sv₊p,),
+    random = (:sv₊x, :sv₊τ),
+    indiv = (:sv₊i,),)
+
+indiv_ids = (:A, :B, :C)
+nothing # hide
+```
+
+### Priors, Observations, and Observation uncertainty
+
+We need to provide additional information to the inversion, such as observations,
+observation uncertainties, and prior distribution.
+This is achieved by overriding specific functions with the first argument being
+a specific subtype of [AbstractCrossInversionCase](@ref) corresponding to the inversion problem.
+
+Here, we define singleton type `DocuVecCase` and provide priors with function 
+[`get_priors_dict`](@ref). For simplicity we return the same priors independent of the individual
+or the scenario.
+For the SymbolicArray parameters, we need to provide a Multivariate distribution.
+Here, we provide a product distribution of uncorrelated LogNormal distributions,
+which are specified by its mode and upper quantile.
+
+```@example doc
+struct DocuVecCase <: AbstractCrossInversionCase end
+
+function CrossInverts.get_priors_dict(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -39,7 +87,6 @@ function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, S
     dd[:sv₊x] = product_MvLogNormal(dd[:sv₊x_1], dd[:sv₊x_2])
     dd
 end
-
 function product_MvLogNormal(comp...)
     μ = collect(getproperty.(comp, :μ))
     σ = collect(getproperty.(comp, :σ))
@@ -47,136 +94,58 @@ function product_MvLogNormal(comp...)
     MvLogNormal(μ, Σ)
 end
 
+inv_case = DocuVecCase()
+scenario = NTuple{0, Symbol}()
 
+get_priors_dict(inv_case, :A; scenario)
+```
 
-function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
-    #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
+Similarly, we provide prior distributions for uncertainty of
+the random effects by function [`get_priors_random_dict`](@ref).
+
+```@example doc
+function CrossInverts.get_priors_random_dict(::DocuVecCase; scenario = NTuple{0, Symbol}())
     # prior in σ rather than σstar
     d_exp = Exponential(log(1.05))
     dd = Dict{Symbol, Distribution}([:sv₊τ, :sv₊i] .=> d_exp)
-    # https://github.com/TuringLang/Bijectors.jl/issues/300
-    # dd[:sv₊x] = product_distribution(d_exp,d_exp)
     dd[:sv₊x] = Distributions.Product(fill(d_exp, 2))
-    # d_lognorm = fit(LogNormal, moments(d_exp))
-    # dd[:sv₊x] = product_MvLogNormal(d_lognorm,d_lognorm)
     dd
 end
 
-# function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
-#     #TODO replace by get_indiv_parameters_from_priors
-#     @named sv = samplesystem_vec()
-#     @named system = embed_system(sv)
-#     #_dict_nums = get_system_symbol_dict(system)
-#     # setup a problem, numbers do not matter, because set below from prior mean
-#     t = [0.2, 0.4, 1.0, 2.0]
-#     p_siteA = ComponentVector(sv₊x = [1.1, 2.1], sv₊i = 4)
-#     st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
-#     p_new = Dict(sv.i .=> p_siteA.sv₊i)
-#     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
+get_priors_random_dict(inv_case; scenario)
+```
 
-#     priors_dict = get_priors_dict(inv_case, :A; scenario)
-#     _m = Dict(k => mean(v) for (k, v) in priors_dict)
-#     fixed = ComponentVector(sv₊p = _m[:sv₊p])
-#     random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
-#     indiv = ComponentVector(sv₊i = _m[:sv₊i])
-#     popt = vcat_statesfirst(fixed, random, indiv; system)
-#     psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
-#     pset = ODEProblemParSetter(system, popt)
-#     problem = remake(problem, popt, pset)
+Further, the type of distribution of observation uncertainties of 
+the observations of different data streams by function 
+[`get_obs_uncertainty_dist_type`](@ref).
 
-#     p_A = (label_state(pset, problem.u0), label_par(pset, problem.p)) # Tuple (u0, p)
-#     # multiply random effects for sites B and C
-#     priors_random = dict_to_cv(keys(random), get_priors_random_dict(inv_case; scenario))
-#     rng = StableRNG(234)
-#     _get_u0p_ranef = () -> begin
-#         probo = sample_and_add_ranef(problem, priors_random, rng; psets)
-#         (label_state(pset, probo.u0), label_par(pset, probo.p))
-#     end
-#     #_get_u0p_ranef()
-#     p_indiv = rename(DataFrame([
-#             (:A, p_A...),
-#             (:B, _get_u0p_ranef()...),
-#             (:C, _get_u0p_ranef()...),
-#         ]), ["indiv_id", "u0", "p"])
-#     # ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
-#     if :modify_fixed ∈ scenario
-#         # modify fixed parameters of third indiv_id
-#         p_indiv.p[3].sv₊p = p_indiv.p[3].sv₊p .* 1.05
-#     end
-#     p_indiv
-# end
-
-function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
+```@example doc
+function CrossInverts.get_obs_uncertainty_dist_type(::DocuVecCase, stream;
         scenario = NTuple{0, Symbol}())
     dtypes = Dict{Symbol, Type}(:sv₊dec2 => LogNormal,
         :sv₊x => MvLogNormal)
     dtypes[stream]
 end
 
-gen_site_data_vec = () -> begin
-    # using and setup in test_util_mixed
-    @named sv = CP.samplesystem_vec()
-    @named system = embed_system(sv)    
-    inv_case = SampleSystemVecCase()
-    scenario = NTuple{0, Symbol}()
-    mixed_keys = (;
-    fixed = (:sv₊p,),
-    random = (:sv₊x, :sv₊τ),
-    indiv = (:sv₊i,),)
-    indiv_ids = (:A, :B, :C)
-    #p_indiv = CP.get_indiv_parameters(inv_case)
-    p_indiv = get_indiv_parameters_from_priors(inv_case; indiv_ids, mixed_keys,
-    scenario, system)
-    #using DistributionFits, StableRNGs, Statistics
-    # other usings from test_util_mixed
-    _dict_nums = get_system_symbol_dict(system)
-    # setup a problem, numbers do not matter, because set below from prior mean
-    t = [0.2, 0.4, 1.0, 2.0]
-    u0_A, p_A = (p_indiv.u0[1], p_indiv.p[1])
-    p_new = Dict(sv.i .=> p_A.sv₊i)
-    problem = ODEProblem(system, u0_A, (0.0, 2.0), p_new)
-    #indiv_id = first(keys(p_indiv))
-    streams = (:sv₊x, :sv₊dec2)
-    dtypes = Dict(s => get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams)
-    unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => convert(Matrix,PDiagMat(log.([1.1, 1.1]))))
-    d_noise = Dict(s => begin
-        unc = unc_par[s]
-        m = unc isa AbstractMatrix ? fill(1.0, size(unc, 1)) : 1.0
-        fit_mean_Σ(dtypes[s], m, unc)
-    end for s in streams)
-    # d_noise[:sv₊x]
-    rng = StableRNG(123)
-    indiv_dict = Dict(p_indiv.indiv_id .=> zip(p_indiv.u0, p_indiv.p))
-    # indiv_id = first(p_indiv.indiv_id)
-    obs_tuple = map(p_indiv.indiv_id) do indiv_id
-        #st = Dict(Symbolics.scalarize(sv.x .=> p_indiv[indiv_id].u0.sv₊x))
-        #p_new = Dict(sv.i .=> p_indiv[indiv_id].sv₊i)
-        #prob = ODEProblem(system, st, (0.0, 2.0), p_new)
-        probo = remake(problem,
-            u0 = CA.getdata(indiv_dict[indiv_id][1]),
-            p = CA.getdata(indiv_dict[indiv_id][2]))
-        sol = solve(probo, Tsit5(), saveat = t)
-        #sol[[sv.x[1], sv.dec2]]
-        #sol[_dict_nums[:sv₊dec2]]
-        #stream = last(streams) #stream = first(streams)
-        tmp = map(streams) do stream
-            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
-            n_obs = length(obs_true)
-            obs_unc = fill(unc_par[stream], n_obs)  # may be different for each obs
-            noise = rand(rng, d_noise[stream], n_obs)
-            obs = length(size(noise)) == 1 ?
-                  obs = obs_true .+ noise :
-                  obs = obs_true .+ eachcol(noise)
-            (; t, obs, obs_unc, obs_true)
-        end
-        (; zip(streams, tmp)...)
-    end
-    res = (; zip(p_indiv.indiv_id, obs_tuple)...)
-    #clipboard(res) # not on slurm
-    res  # copy from terminal and paste into get_indivdata
-end
+get_obs_uncertainty_dist_type(inv_case, :sv₊dec2; scenario)
+```
 
-function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
+Finally, for each
+- each individual, 
+- for each stream, 
+we provide a vectors of
+- t: time
+- obs: observations (vectors for multivariate variables)
+- obs_unc: observation uncertainty parameters (can be matrices for multivariate variables)
+- obs_true (optionally): values of the true model to be rediscovered
+  in synthetic experiments
+
+This is done by implementing function [`get_indivdata`](@ref).
+Usually, this would be read information from a file or database. Here, we provide 
+the numbers as text.
+
+```@example doc   
+function CrossInverts.get_indivdata(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
                     [2.3696993004601956, 2.673733320916141],
@@ -278,3 +247,110 @@ function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Sym
                 ])))
     data[indiv_id]
 end
+
+get_indivdata(inv_case, :A; scenario)
+```
+
+## Extracting initial information and tools
+
+A first estimate of the optimized initial state and parameters can then be obtained
+from priors, and a set of tools is created.
+
+```@example doc
+p_indiv = get_indiv_parameters_from_priors(inv_case; 
+    scenario, indiv_ids, mixed_keys, system)
+(mixed, df, psets, priors_pop, sample0) = setup_tools_mixed(p_indiv;
+    inv_case, scenario, system, mixed_keys)
+keys(sample0)
+```
+
+A single sample is a ComponentVector with components
+- fixed: fixed effects
+- random: mean random effects
+- random_σ: uncertainty parameter of the random effects
+- indiv: Component vector of each site with individual effects
+- indiv_random: 
+
+A reminder of the effects:
+```@example doc
+mixed_keys
+```
+
+Accessing single components.
+```@example doc
+sample0[:random]
+```
+```@example doc
+sample0[:indiv][:A]
+```
+
+## Forward simulation
+
+Although not necessary for the inversion, it can be helpful for 
+analysing to do a single forward simulation for all individuals 
+for a given estimate of the effects.
+
+First, a function is created that requires an estimate of the effects,
+and returns the solution and the updated problem for each individual.
+Then this function is called with initial estimates.
+
+```@example doc
+solver = AutoTsit5(Rodas5P())
+sim_sols_probs = gen_sim_sols_probs(; df.tools, psets, solver)
+(fixed, random, indiv, indiv_random) = mixed
+sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
+(sol, problem_opt) = sols_probs[1]
+sol[:sv₊x]
+nothing # hide
+```
+
+## Model Inversion
+
+First, a Turing-model is created.
+Next, a few samples are drawn from this model using the NUTS sampler.
+
+```@example doc
+model_cross = gen_model_cross(;
+    inv_case, tools = df.tools, priors_pop, psets, sim_sols_probs, scenario, solver);
+
+n_burnin = 0
+n_sample = 10
+chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 0.2), n_sample,
+    init_params = collect(sample0))
+
+names(chn, :parameters)
+```
+
+For each scalarized value of the effects there is a series of samples.
+- a single estimate for each fixed effect. For multivariate variables
+the index is appended last, e.g. `Symbol("fixed[:sv₊p][1]")`.
+- a single mean random effect, e.g. `Symbol("random[:sv₊τ]")`.
+- an uncertainty parameter of the random effect, e.g. `Symbol("prand_σ[:sv₊τ]")`.
+- a individual effect for each individual, e.g. `Symbol("indiv[:sv₊i, 3]")` 
+  for the third individual.
+- the individual multiplier for the random effect for each individual,
+  e.g. `Symbol("indiv_random[:sv₊τ, 3]")`.
+
+## Extracting individual effects 
+
+Each row of a mutlivariate chain can be extracted as a ComponentVector,
+and accessed like in [Extracting initial information and tools].
+
+```@example doc
+# first chain as a ComponentMatrix
+s1 = CA.ComponentMatrix(Array(chn[:, 1:length(sample0), 1]),
+    CA.FlatAxis(), first(CA.getaxes(sample0)))
+# sv.p within fixed
+s1[:, :fixed][:, :sv₊p]
+# random effects multiplier for site B for random parameter tau
+s1[:, :indiv_random][:, :B][:, :sv₊τ]
+```
+
+
+
+
+
+
+
+
+

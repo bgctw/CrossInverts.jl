@@ -133,6 +133,15 @@ meandist2componentarray = function (priors)
 end
 
 """
+    get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)
+
+Provide the type of distribution of observation uncertainty for given stream,
+to be used with `fit_mean_Σ`.
+"""
+function get_obs_uncertainty_dist_type end
+
+
+"""
     get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)
 
 Provide Tuple `(indiv_id -> (stream_info)` for each indiv_id.
@@ -153,6 +162,7 @@ function get_indivdata end
 Provide a dictionary (par -> Distribution) for prior parameters and unknowns.
 """
 function get_priors_dict end
+
 
 """
     get_priors_random_dict(::AbstractCrossInversionCase; scenario)
@@ -229,13 +239,7 @@ end
 #     ComponentVector(; zip(stream_names, tup)...)
 # end
 
-"""
-    get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)
 
-Provide the type of distribution of observation uncertainty for given stream,
-to be used with `fit_mean_Σ`.
-"""
-function get_obs_uncertainty_dist_type end
 
 """
     get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase,

@@ -4,9 +4,9 @@ using Documenter
 DocMeta.setdocmeta!(CrossInverts, :DocTestSetup, :(using CrossInverts); recursive = true)
 
 makedocs(;
-    modules = [CrossInverts],
+    #modules = [CrossInverts], # uncomment for errors on docstrings not included
     authors = "Thomas Wutzler <twutz@bgc-jena.mpg.de> and contributors",
-    repo = "https://github.com/bgctw/CrossInverts.jl/blob/{commit}{path}#{line}",
+    repo = Remotes.GitHub("bgctw", "CrossInverts.jl"),
     sitename = "CrossInverts.jl",
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",
@@ -15,6 +15,8 @@ makedocs(;
         assets = String[],),
     pages = [
         "Home" => "index.md",
+        "Walkthrough" => "example_vec.md",
+        "Providing inversion information" => "inversion_case.md",
     ],)
 
 deploydocs(;
