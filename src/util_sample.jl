@@ -72,6 +72,8 @@ function gen_model_cross(;
             indiv_random = ComponentArray(getdata(indiv_random_nl),
                 first(getaxes(random)), FlatAxis())
             #i_indiv = 1
+            # compute all indiv effects first because of order of variables in sample
+            # requires to split the loop
             for i_indiv in 1:n_indiv
                 prior_indiv = priors_indiv[i_indiv]
                 #k = first(keys(prior_indiv))
@@ -79,6 +81,8 @@ function gen_model_cross(;
                     indiv[k, i_indiv] ~ prior_indiv[k]
                     #indiv[k,i_indiv] = rand(prior_indiv[k])
                 end
+            end
+            for i_indiv in 1:n_indiv
                 #k = first(keys(prand_σ))
                 for k in keys(prand_σ)
                     ne = length(prand_σ[k])

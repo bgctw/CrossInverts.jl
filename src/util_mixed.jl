@@ -46,7 +46,8 @@ function setup_tools_mixed(p_indiv::DataFrame;
         df.paropt,
         priors_pop.random_σ;
         indiv_ids = df.indiv_id)
-    (; mixed, df, psets, priors_pop, sample0)
+    effect_pos = MTKHelpers.attach_axis(1:length(sample0), MTKHelpers._get_axis(sample0))
+    (; mixed, df, psets, priors_pop, sample0, effect_pos)
 end
 
 # """

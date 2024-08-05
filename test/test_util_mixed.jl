@@ -9,6 +9,9 @@ using StableRNGs
 using Statistics
 using DistributionFits
 using PDMats: PDiagMat
+using Turing
+using Logging, LoggingExtras
+
 
 @named sv = CP.samplesystem_vec()
 @named system = embed_system(sv)
@@ -28,7 +31,7 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
 
 # get the sizes of ComponentVectors from prior means
 # actual values are overridden below from site, after psets.opt is available
-(mixed, df, psets, priors_pop, sample0) = setup_tools_mixed(p_indiv;
+(mixed, df, psets, priors_pop, sample0, effect_pos) = setup_tools_mixed(p_indiv;
     inv_case, scenario, system, mixed_keys)
 (fixed, random, indiv, indiv_random) = mixed
 
@@ -82,11 +85,9 @@ sim_sols_probs = gen_sim_sols_probs(; df.tools, psets, solver)
     #@test sol2 == sol # Stackoverflow on older versions
 end;
 
-using Turing
 n_burnin = 0
 n_sample = 10
 
-using Logging, LoggingExtras
 error_on_warning = EarlyFilteredLogger(global_logger()) do log_args
     if log_args.level >= Logging.Warn
         error(log_args)
@@ -104,15 +105,59 @@ tmpf = () -> begin
 end
 
 #with_logger(error_on_warning) do
-chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 0.2), n_sample,
-    init_params = collect(sample0))
+chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 0.2), 
+    MCMCThreads(), n_sample, 2, init_params = collect(sample0))
 #end
 
-names(chn, :parameters)
+tmpf = () -> begin
+    names(chn, :parameters)
+    # first chain as a ComponentMatrix
+    s1 = CA.ComponentMatrix(Array(chn[:, 1:length(sample0), 1]),
+        CA.FlatAxis(), first(CA.getaxes(sample0)))
+    s1[:, :fixed][:, :sv₊p]
+end
 
-# first chain as a ComponentMatrix
-s1 = CA.ComponentMatrix(Array(chn[:, 1:length(sample0), 1]),
-    CA.FlatAxis(), first(CA.getaxes(sample0)))
-s1[:, :fixed][:, :sv₊p]
 
-#Serialization.serialize("tmp/mixed_sample_chn.js", chn)
+@testset "Turing indices match sample" begin
+    chn2 = chn[:, vcat(effect_pos[:indiv_random][:B]...), :]
+    @test names(chn2) == [Symbol("indiv_random[:sv₊x, 2][1]"),
+        Symbol("indiv_random[:sv₊x, 2][2]"), Symbol("indiv_random[:sv₊τ, 2]")]
+end;
+
+
+tmpf = () -> begin
+    #experiment with accessing subgroups
+    names(chn)
+    sections(chn)
+    namesingroup(chn, :random)
+    namesingroup(chn, :prand_σ)
+    namesingroup(chn, :fixed)
+    namesingroup(chn, :indiv)
+
+    namesingroup(chn, :indiv_random)
+
+    sample0.indiv_random
+
+    tmp = group(chn, :random)
+    tmp = group(chn, :indiv)
+    replacenames(tmp, "indiv[:sv₊i, 1]" => "sv₊i[:A]")
+    sample0[:indiv]
+
+    chn = group(chn, :fixed)
+    keys(sample0.fixed)
+
+    tmp = extract_group(chn, :fixed)
+    tmp = extract_group(chn, :prand_σ)
+    tmp = extract_group(chn, :indiv)
+    tmp = extract_group(chn, :indiv, indiv_ids)
+    tmp = extract_group(chn, :indiv_random)
+    tmp = extract_group(chn, :indiv_random, indiv_ids)
+    tmp = compute_indiv_random(chn, indiv_ids)
+    
+    replace(":sv₊i, 1", r",\s*1$" => "[X]")
+    arr = cat(Array(chn, append_chains=false)..., dims=3)
+    tmp = CA.ComponentArray(arr, CA.FlatAxis(), first(CA.getaxes(sample0)), CA.FlatAxis())
+
+    tmp[:, :fixed, :]
+    chn2 = get_example_chain()
+end
