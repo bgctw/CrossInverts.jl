@@ -37,7 +37,7 @@ end
   compute_indiv_random(chn::MCMCChains.Chains, indiv_ids) 
 
 Extract random and random_indiv Subchains and compute the restuling parameter. 
-It mutliplies the mean random effect by the individual multiplicative random effect.
+It multiplies the mean random effect by the individual multiplicative random effect.
 """
 function compute_indiv_random(chn::MCMCChains.Chains, indiv_ids) 
   _means = extract_group(chn, :random)
