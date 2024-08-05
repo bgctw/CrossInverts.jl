@@ -64,7 +64,7 @@ Here, we define singleton type `DocuVecCase` and provide priors with function
 or the scenario.
 For the SymbolicArray parameters, we need to provide a Multivariate distribution.
 Here, we provide a product distribution of uncorrelated LogNormal distributions,
-which are specified by its mode and upper quantile.
+which are specified by its mode and upper quantile using [`df_from_paramsModeUpperRows`](@ref).
 
 ```@example doc
 struct DocuVecCase <: AbstractCrossInversionCase end
@@ -254,7 +254,8 @@ get_indivdata(inv_case, :A; scenario)
 ## Extracting initial information and tools
 
 A first estimate of the optimized initial state and parameters can then be obtained
-from priors, and a set of tools is created.
+from priors using function [`get_indiv_parameters_from_priors`](@ref), 
+and a set of tools is created using function [`setup_tools_mixed`](@ref)
 
 ```@example doc
 p_indiv = get_indiv_parameters_from_priors(inv_case; 
@@ -290,7 +291,8 @@ Although not necessary for the inversion, it can be helpful for
 analysing to do a single forward simulation for all individuals 
 for a given estimate of the effects.
 
-First, a function is created that requires an estimate of the effects,
+First, a function is created using [`gen_sim_sols_probs`](@ref) 
+that requires an estimate of the effects,
 and returns the solution and the updated problem for each individual.
 Then this function is called with initial estimates.
 
@@ -306,7 +308,7 @@ nothing # hide
 
 ## Model Inversion
 
-First, a Turing-model is created.
+First, a Turing-model is created using [`gen_model_cross`](@ref).
 Next, a few samples are drawn from this model using the NUTS sampler.
 
 ```@example doc
@@ -333,18 +335,17 @@ the index is appended last, e.g. `Symbol("fixed[:sv₊p][1]")`.
 
 ## Extracting individual effects 
 
-Each row of a mutlivariate chain can be extracted as a ComponentVector,
-and accessed like in [Extracting initial information and tools].
+Each row of a mutlivariate chain can be extracted as a ComponentVector
+as described in [Extracting effects from sampled object].
+
 
 ```@example doc
-# first chain as a ComponentMatrix
-s1 = CA.ComponentMatrix(Array(chn[:, 1:length(sample0), 1]),
-    CA.FlatAxis(), first(CA.getaxes(sample0)))
-# sv.p within fixed
-s1[:, :fixed][:, :sv₊p]
-# random effects multiplier for site B for random parameter tau
-s1[:, :indiv_random][:, :B][:, :sv₊τ]
-```
+chn2 = chn[:,vcat(effect_pos[:indiv_random][:B]...),:]
+chn3 = extract_group(chn2)
+names(chn3)
+
+
+
 
 
 

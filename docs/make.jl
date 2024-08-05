@@ -15,7 +15,8 @@ makedocs(;
         assets = String[],),
     pages = [
         "Home" => "index.md",
-        "Walkthrough" => "example_vec.md",
+        "Walkthrough" => "example_vec.md", # move to start when not testing docu
+        "Extracting effects" => "extract_groups.md",
         "Providing inversion information" => "inversion_case.md",
     ],)
 

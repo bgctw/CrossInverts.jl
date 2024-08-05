@@ -38,4 +38,8 @@ export setup_tools_mixed
 export gen_model_cross
 include("util_sample.jl")
 
+export extract_group 
+export compute_indiv_random
+include("extract_group.jl")
+
 end

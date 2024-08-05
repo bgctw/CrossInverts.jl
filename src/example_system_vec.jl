@@ -55,8 +55,8 @@ function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symb
     d_exp = Exponential(log(1.05))
     dd = Dict{Symbol, Distribution}([:sv₊τ, :sv₊i] .=> d_exp)
     # https://github.com/TuringLang/Bijectors.jl/issues/300
-    # dd[:sv₊x] = product_distribution(d_exp,d_exp)
-    dd[:sv₊x] = Distributions.Product(fill(d_exp, 2))
+    dd[:sv₊x] = product_distribution(d_exp,d_exp)
+    #dd[:sv₊x] = Distributions.Product(fill(d_exp, 2))
     # d_lognorm = fit(LogNormal, moments(d_exp))
     # dd[:sv₊x] = product_MvLogNormal(d_lognorm,d_lognorm)
     dd
