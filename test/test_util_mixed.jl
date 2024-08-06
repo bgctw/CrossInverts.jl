@@ -12,7 +12,6 @@ using PDMats: PDiagMat
 using Turing
 using Logging, LoggingExtras
 
-
 @named sv = CP.samplesystem_vec()
 @named system = embed_system(sv)
 inv_case = SampleSystemVecCase()
@@ -21,7 +20,7 @@ scenario = NTuple{0, Symbol}()
 mixed_keys = (;
     fixed = (:sv₊p,),
     random = (:sv₊x, :sv₊τ),
-    indiv = (:sv₊i,),)
+    indiv = (:sv₊i,))
 
 indiv_ids = (:A, :B, :C)
 #p_indiv = CP.get_indiv_parameters(inv_case)
@@ -31,9 +30,10 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
 
 # get the sizes of ComponentVectors from prior means
 # actual values are overridden below from site, after psets.opt is available
-(mixed, df, psets, priors_pop, sample0, effect_pos) = setup_tools_mixed(p_indiv;
+(; mixed, indiv_info, pop_info) = setup_tools_mixed(p_indiv;
     inv_case, scenario, system, mixed_keys)
-(fixed, random, indiv, indiv_random) = mixed
+(; fixed, random, indiv, indiv_random) = mixed
+(; psets, problemupdater, pset_u0p, priors_pop, sample0, effect_pos) = pop_info
 
 @testset "setup_psets_mixed" begin
     priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
@@ -45,10 +45,17 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
     @test all((:fixed, :random, :indiv, :popt) .∈ Ref(keys(psets)))
     (_fixed, _random, _indiv1, _popt) = mean_priors_mixed
     @test psets.fixed isa ODEProblemParSetter
+    # when setting u0 and p make sure provide same order as in pset_u0p
+    # which gets the order from p_indiv
+    #    default order from psets.popt, created in setup_psets_mixed(mixed_keys; system
+    #    which has the order of parameters(system)
+    # Hence, if one wants to set u0 and p -> adjust order in p_indiv before
+    #    or index into u0 and p using eys_state(pset_u0p)
     _tools = setup_tools_indiv(:A; inv_case, scenario, system,
-        keys_indiv = mixed_keys.indiv,
-        u0 = _popt[(:sv₊x,)], p = _popt[(:sv₊p, :sv₊τ, :sv₊i)])
-    @test flatten1(get_paropt_labeled(_tools.pset_u0p, _tools.problem)) == _popt
+        keys_indiv = mixed_keys.indiv, pset_u0p = pop_info.pset_u0p,
+        u0 = _popt[keys_state(pset_u0p)], p = _popt[keys_par(pset_u0p)])
+    @test flatten1(get_paropt_labeled(pop_info.pset_u0p, _tools.problem)) == 
+        _popt[keys_paropt(pop_info.pset_u0p)]
     @test flatten1(get_paropt_labeled(psets.fixed, _tools.problem)) == _fixed
     @test flatten1(get_paropt_labeled(psets.random, _tools.problem)) == _random
     @test flatten1(get_paropt_labeled(psets.indiv, _tools.problem)) == _indiv1
@@ -56,28 +63,32 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
 end;
 
 solver = AutoTsit5(Rodas5P())
-sim_sols_probs = gen_sim_sols_probs(; df.tools, psets, solver)
+sim_sols_probs = gen_sim_sols_probs(;
+    tools = indiv_info.tools, psets = pop_info.psets, 
+    problemupdater = pop_info.problemupdater, solver)
 
 @testset "simsols" begin
     sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
     (sol, problem_opt) = sols_probs[1]
-    popt1 = flatten1(get_paropt_labeled(psets.popt, df.tools[1].problem))
+    popt1 = flatten1(get_paropt_labeled(psets.popt, indiv_info.tools[1].problem))
     popt2 = flatten1(get_paropt_labeled(psets.popt, problem_opt))
-    @test popt2[keys(random)] == random .* indiv_random[:, 1] 
+    @test popt2[keys(random)] == random .* indiv_random[:, 1]
     @test popt2[mixed_keys.indiv] == indiv[:, 1]
-    @test popt2[keys(fixed)] == fixed 
+    @test popt2[keys(fixed)] == fixed
     # recomputed sites ranef and set indiv, but used mean fixed parameters
-    @test popt2[keys(random)] == df.paropt[1][keys(random)]
-    @test popt2[mixed_keys.indiv] == df.paropt[1][mixed_keys.indiv]
+    @test popt2[keys(random)] == indiv_info.paropt[1][keys(random)]
+    @test popt2[mixed_keys.indiv] == indiv_info.paropt[1][mixed_keys.indiv]
     sol = first(sols_probs).sol
     @test all(sol[sv.x][1] .== p_indiv.u0[1]) # here all state random effects
     sol[sv.x]
     sol([0.3, 0.35]; idxs = [sv.dec2, sv.dec2])
     @test all(sol([0.3, 0.35]; idxs = sv.dec2).u .> 0) # observed at a interpolated times
-    solA0 = solve(df.tools[1].problem, solver)
+    solA0 = solve(indiv_info.tools[1].problem, solver)
 
-    sim_sols = gen_sim_sols(; tools = df.tools, psets, solver, maxiters = 1e4)
-    poptl = (; fixed, random, indiv, indiv_random,)
+    sim_sols = gen_sim_sols(; 
+        tools = indiv_info.tools, psets = pop_info.psets, 
+        problemupdater = pop_info.problemupdater, solver, maxiters = 1e4)
+    poptl = (; fixed, random, indiv, indiv_random)
     sols = sim_sols(poptl)
     sol2 = first(sols)
     @test sol2.t == sol.t
@@ -96,16 +107,19 @@ error_on_warning = EarlyFilteredLogger(global_logger()) do log_args
 end;
 
 model_cross = gen_model_cross(;
-    inv_case, tools = df.tools, priors_pop, psets, sim_sols_probs, scenario, solver);
+    inv_case, tools = indiv_info.tools,
+    priors_pop = pop_info.priors_pop,
+    psets = pop_info.psets,
+    sim_sols_probs, scenario, solver);
 
-tmpf = () -> begin    
+tmpf = () -> begin
     # for finding initial step size use some more adaptive steps
     chn = Turing.sample(model_cross, Turing.NUTS(1000, 0.65), n_sample,
-    init_params = collect(sample0))
+        init_params = collect(sample0))
 end
 
 #with_logger(error_on_warning) do
-chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 0.2), 
+chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 0.2),
     MCMCThreads(), n_sample, 2, init_params = collect(sample0))
 #end
 
@@ -117,13 +131,11 @@ tmpf = () -> begin
     s1[:, :fixed][:, :sv₊p]
 end
 
-
 @testset "Turing indices match sample" begin
     chn2 = chn[:, vcat(effect_pos[:indiv_random][:B]...), :]
     @test names(chn2) == [Symbol("indiv_random[:sv₊x, 2][1]"),
         Symbol("indiv_random[:sv₊x, 2][2]"), Symbol("indiv_random[:sv₊τ, 2]")]
 end;
-
 
 tmpf = () -> begin
     #experiment with accessing subgroups
@@ -153,9 +165,9 @@ tmpf = () -> begin
     tmp = extract_group(chn, :indiv_random)
     tmp = extract_group(chn, :indiv_random, indiv_ids)
     tmp = compute_indiv_random(chn, indiv_ids)
-    
+
     replace(":sv₊i, 1", r",\s*1$" => "[X]")
-    arr = cat(Array(chn, append_chains=false)..., dims=3)
+    arr = cat(Array(chn, append_chains = false)..., dims = 3)
     tmp = CA.ComponentArray(arr, CA.FlatAxis(), first(CA.getaxes(sample0)), CA.FlatAxis())
 
     tmp[:, :fixed, :]

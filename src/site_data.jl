@@ -57,23 +57,57 @@ Concrete types should implement
   Type of distribution of observation-uncertainty per stream.
 - `get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)`
   The times, observations, and uncertainty parameters per indiv_id and stream.
+- `get_problemupdater(::AbstractCrossInversionCase; scenario)`
+  A ProblemUpdater for ensuring consistent parameters after setting optimized 
+  parameters.
 """
 abstract type AbstractCrossInversionCase end
 
 """
-TODO describe
+    get_problemupdater(::AbstractCrossInversionCase; scenario)
+
+Return a specific `ProblemUpdater` for given Inversioncase and scennario.
+It is applied after parameters to optimized have been set. The typical
+case is optimizing a single parameter, but adjusting other parameters to
+be consistent with the optimized one, e.g. always use the same value for
+another parameter.
+
+The default is a `NullProblemUpdater`, which does not modify parameters.    
+"""
+function get_problemupdater(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+    NullProblemUpdater()
+end
+
+
+"""
+    setup_tools_indiv(indiv_id;
+            inv_case::AbstractCrossInversionCase, scenario,
+            system,
+            sitedata = get_indivdata(inv_case, indiv_id; scenario),
+            tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
+            pset_u0p, 
+            u0 = nothing,
+            p = nothing,
+            keys_indiv = NTuple{0, Symbol}(),
+            priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
+            )
+
+Compiles the information and tools for individuals.
+Returns a `NamedTuple`: `(;priors_indiv, problem, sitedata)`.
 """
 function setup_tools_indiv(indiv_id;
         inv_case::AbstractCrossInversionCase, scenario,
         system,
         sitedata = get_indivdata(inv_case, indiv_id; scenario),
         tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
+        pset_u0p, 
         u0 = nothing,
         p = nothing,
-        keys_indiv = NTuple{0, Symbol}())
+        keys_indiv = NTuple{0, Symbol}(),
+        priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
+        )
     #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
-    priors_dict = get_priors_dict(inv_case, indiv_id; scenario)
     # default u0 and p from expected value of priors
     if isnothing(u0)
         priors_u0 = dict_to_cv(unique(symbol_op.(unknowns(system))), priors_dict)
@@ -87,24 +121,18 @@ function setup_tools_indiv(indiv_id;
     problem = ODEProblem(system, system_num_dict(u0, sys_num_dict), tspan,
         system_num_dict(p, sys_num_dict))
     #
-    pset_u0p = ODEProblemParSetter(system, u0p)
     problem = remake(problem, u0p, pset_u0p)
-    #
-    # u_map = get_u_map(keys(u0), pset_u0p)
-    # p_map = get_p_map(keys(p), pset_u0p)
-    #
-    problemupdater = NullProblemUpdater()
     #
     #popt_l = label_paropt(pset_u0p, u0p) # axis with split state and par
     #popt_flat = flatten1(popt_l)
     priors_indiv = dict_to_cv(keys_indiv, priors_dict)
     #
-    (; pset_u0p, problemupdater, priors_indiv, problem, sitedata)
+    (;priors_indiv, problem, sitedata)
 end
 
 """
 Put priors for fixed, random, and random_σ into a ComponentVector.
-Default Priors dist is acuqired for site `missing`.    
+The indiv priors can be indiv_id-specific, they are setup in `setup_tools_indiv`.     
 """
 function setup_priors_pop(keys_fixed, keys_random;
         inv_case::AbstractCrossInversionCase, scenario,
@@ -113,7 +141,7 @@ function setup_priors_pop(keys_fixed, keys_random;
     (;
         fixed = dict_to_cv(keys_fixed, priors_dict),
         random = dict_to_cv(keys_random, priors_dict),
-        random_σ = dict_to_cv(keys_random, priors_random_dict)        # the indiv priors can be indiv_id-specific, they are setup in setup_tools_indiv
+        random_σ = dict_to_cv(keys_random, priors_random_dict)
     )
 end
 
@@ -251,8 +279,8 @@ end
 
 Construct a DataFrame with parameters across sites with 
 - fixed parameters corresponding to the mean of its prior
-- random parameters corresponding to mean modified by sampled random effects
-  and its meta parameters
+- random parameters corresponding to mean modified, i.e. multiplied, by sampled 
+  random effects and its meta parameters
 - individual parameters 
 
 ## Value

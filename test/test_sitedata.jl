@@ -42,13 +42,13 @@ end;
     popt = CA.ComponentVector(state = (m1₊x1 = 1.0, m1₊x2 = 1.0),
         par = (m1₊τ = 1.0, m1₊p = fill(1.0, 3)))
     indiv = flatten1(popt)[(:m1₊x1, :m1₊x2)]
-    res_prior = setup_tools_indiv(:A; inv_case, scenario, system = sys,
+    pset_u0p = ODEProblemParSetter(sys, popt)
+    res_prior = setup_tools_indiv(:A; inv_case, scenario, system = sys, pset_u0p,
         keys_indiv = keys(indiv))
-    res = setup_tools_indiv(:A; inv_case, scenario, system = sys,
+    res = setup_tools_indiv(:A; inv_case, scenario, system = sys, pset_u0p,
         keys_indiv = keys(indiv), u0 = popt.state, p = popt.par)
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
-    @test res.problemupdater isa NullProblemUpdater
-    @test axis_paropt(res.pset_u0p) == CA.getaxes(popt)[1]
+    @test axis_paropt(pset_u0p) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()

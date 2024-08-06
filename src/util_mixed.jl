@@ -37,8 +37,10 @@ function setup_tools_mixed(p_indiv::DataFrame;
         [:u0, :p] => DataFrames.ByRow(_extract_paropt) => :paropt)
     mixed = extract_mixed_effects(psets, df.paropt)
     priors_pop = setup_priors_pop(keys(mixed.fixed), keys(mixed.random); inv_case, scenario)
+    u0p = ComponentVector(state = df.u0[1], par = df.p[1])
+    pset_u0p = ODEProblemParSetter(system, u0p)
     _setuptools = (indiv_id, u0, p) -> setup_tools_indiv(indiv_id; inv_case, scenario,
-        system, u0, p, keys_indiv = mixed_keys.indiv)
+        system, pset_u0p, u0, p, keys_indiv = mixed_keys.indiv)
     #_tools = _setuptools(df.indiv_id[1], df.u0[1], df.p[1])
     DataFrames.transform!(df,
         [:indiv_id, :u0, :p] => DataFrames.ByRow(_setuptools) => :tools)
@@ -47,7 +49,10 @@ function setup_tools_mixed(p_indiv::DataFrame;
         priors_pop.random_σ;
         indiv_ids = df.indiv_id)
     effect_pos = MTKHelpers.attach_axis(1:length(sample0), MTKHelpers._get_axis(sample0))
-    (; mixed, df, psets, priors_pop, sample0, effect_pos)
+    problemupdater = get_problemupdater(inv_case; scenario)
+    #
+    pop_info = (;psets, problemupdater, pset_u0p, priors_pop, sample0, effect_pos)
+    (; mixed, pop_info, indiv_info = df)
 end
 
 # """
@@ -185,17 +190,16 @@ Update and simulate system (given with tools to gen_sim_sols_probs) by
 If non-optimized p and u0 differ between individuals, they must already be
 set in tools[i_indiv].problem.
 """
-function gen_sim_sols_probs(; tools, psets, solver = AutoTsit5(Rodas5()), kwargs_gen...)
+function gen_sim_sols_probs(; tools, psets, problemupdater, solver = AutoTsit5(Rodas5()), kwargs_gen...)
     fLogger = EarlyFilteredLogger(current_logger()) do log
         #@show log
         !(log.level == Logging.Warn && log.group == :integrator_interface)
     end
     n_indiv = length(tools)
     # see help on MTKHelpers.ODEProblemParSetterConcrete
-    fbarrier = (psets = map(get_concrete, psets),
-    problemupdater = get_concrete(first(tools).problemupdater)) -> let solver = solver,
+    fbarrier = () -> let solver = solver,
         problems_indiv = map(t -> t.problem, tools),
-        psets = psets, problemupdater = problemupdater,
+        psets = map(get_concrete, psets), problemupdater = get_concrete(problemupdater),
         n_indiv = n_indiv,
         kwargs_gen = kwargs_gen,
         fLogger = fLogger

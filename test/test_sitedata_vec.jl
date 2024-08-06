@@ -43,15 +43,15 @@ end;
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
     random = flatten1(popt)[(:sv₊x, :sv₊τ)]
     indiv = flatten1(popt)[(:sv₊p,)]
-    res_prior = setup_tools_indiv(:A; inv_case, scenario, system = sys,
+    pset_u0p = ODEProblemParSetter(sys, popt)
+    res_prior = setup_tools_indiv(:A; inv_case, scenario, system = sys, pset_u0p,
         keys_indiv = keys(indiv))
-    res = setup_tools_indiv(:A; inv_case, scenario, system = sys,
+    res = setup_tools_indiv(:A; inv_case, scenario, system = sys, pset_u0p,
         keys_indiv = keys(indiv), u0 = popt.state, p = popt.par)
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
-    @test res.problemupdater isa NullProblemUpdater
     @test eltype(res.priors_indiv) <: Distribution
     @test keys(res.priors_indiv) == keys(indiv)
-    @test axis_paropt(res.pset_u0p) == CA.getaxes(popt)[1]
+    @test axis_paropt(pset_u0p) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()

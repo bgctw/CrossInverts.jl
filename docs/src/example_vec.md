@@ -260,9 +260,10 @@ and a set of tools is created using function [`setup_tools_mixed`](@ref)
 ```@example doc
 p_indiv = get_indiv_parameters_from_priors(inv_case; 
     scenario, indiv_ids, mixed_keys, system)
-(mixed, df, psets, priors_pop, sample0) = setup_tools_mixed(p_indiv;
+(;mixed, indiv_info, pop_info) = setup_tools_mixed(p_indiv;
     inv_case, scenario, system, mixed_keys)
-keys(sample0)
+#(psets, priors_pop, sample0, effect_pos) = pop_info
+keys(pop_info.sample0)
 ```
 
 A single sample is a ComponentVector with components
@@ -279,10 +280,10 @@ mixed_keys
 
 Accessing single components.
 ```@example doc
-sample0[:random]
+pop_info.sample0[:random]
 ```
 ```@example doc
-sample0[:indiv][:A]
+pop_info.sample0[:indiv][:A]
 ```
 
 ## Forward simulation
@@ -298,7 +299,9 @@ Then this function is called with initial estimates.
 
 ```@example doc
 solver = AutoTsit5(Rodas5P())
-sim_sols_probs = gen_sim_sols_probs(; df.tools, psets, solver)
+sim_sols_probs = gen_sim_sols_probs(; 
+    tools = indiv_info.tools, psets = pop_info.psets, 
+    problemupdater = pop_info.problemupdater, solver)
 (fixed, random, indiv, indiv_random) = mixed
 sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
 (sol, problem_opt) = sols_probs[1]
@@ -313,12 +316,14 @@ Next, a few samples are drawn from this model using the NUTS sampler.
 
 ```@example doc
 model_cross = gen_model_cross(;
-    inv_case, tools = df.tools, priors_pop, psets, sim_sols_probs, scenario, solver);
+    inv_case, tools = indiv_info.tools, 
+    priors_pop = pop_info.priors_pop, psets = pop_info.psets, 
+    sim_sols_probs, scenario, solver);
 
 n_burnin = 0
 n_sample = 10
 chn = Turing.sample(model_cross, Turing.NUTS(n_burnin, 0.65, init_ϵ = 0.2), n_sample,
-    init_params = collect(sample0))
+    init_params = collect(pop_info.sample0))
 
 names(chn, :parameters)
 ```
@@ -335,15 +340,14 @@ the index is appended last, e.g. `Symbol("fixed[:sv₊p][1]")`.
 
 ## Extracting individual effects 
 
-Each row of a mutlivariate chain can be extracted as a ComponentVector
+Each row of a multivariate chain can be extracted as a ComponentVector
 as described in [Extracting effects from sampled object].
 
-
 ```@example doc
-chn2 = chn[:,vcat(effect_pos[:indiv_random][:B]...),:]
-chn3 = extract_group(chn2)
+chn2 = chn[:,vcat(pop_info.effect_pos[:indiv_random][:B]...),:]
+chn3 = extract_group(chn2, :indiv_random, indiv_ids)
 names(chn3)
-
+```
 
 
 

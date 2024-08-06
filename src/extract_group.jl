@@ -4,7 +4,7 @@
 
 Extract SubChain of components (`:fixed`, `:random`, `:prand_σ`, `:indiv`, `:indiv_random`)
 and replace parameter names like `group[:p1, o1]o2 => group[o1]o2`.
-The variant, where indiv_ids is specified, additionally 
+The variant, where `indiv_ids` is specified, additionally 
 replaces first `[i]` by `[:(indiv_ids[i])]`.
 """
 function extract_group(chn::MCMCChains.Chains, group::Symbol) 
