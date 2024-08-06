@@ -43,15 +43,18 @@ end;
         par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
     random = flatten1(popt)[(:sv₊x, :sv₊τ)]
     indiv = flatten1(popt)[(:sv₊p,)]
-    pset_u0p = ODEProblemParSetter(sys, popt)
-    res_prior = setup_tools_indiv(:A; inv_case, scenario, system = sys, pset_u0p,
+    @test_throws "i2" setup_tools_indiv(:A; inv_case, scenario, system = sys,
         keys_indiv = keys(indiv))
-    res = setup_tools_indiv(:A; inv_case, scenario, system = sys, pset_u0p,
+    res_prior = setup_tools_indiv(:A; inv_case, scenario, system = sys,
+        keys_indiv = keys(indiv), p_default = CA.ComponentVector(sv₊i2 = 5.0,))
+    @test_throws "sv₊i2" setup_tools_indiv(:A; inv_case, scenario, system = sys,
         keys_indiv = keys(indiv), u0 = popt.state, p = popt.par)
+    res = setup_tools_indiv(:A; inv_case, scenario, system = sys,
+        keys_indiv = keys(indiv), u0 = popt.state, p = popt.par, 
+        p_default = CA.ComponentVector(sv₊i = 4.0, sv₊i2 = 5.0,))        
     #@test eltype(res.u_map) == eltype(res.p_map) == Int
     @test eltype(res.priors_indiv) <: Distribution
     @test keys(res.priors_indiv) == keys(indiv)
-    @test axis_paropt(pset_u0p) == CA.getaxes(popt)[1]
     @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()

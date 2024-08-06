@@ -37,10 +37,8 @@ function setup_tools_mixed(p_indiv::DataFrame;
         [:u0, :p] => DataFrames.ByRow(_extract_paropt) => :paropt)
     mixed = extract_mixed_effects(psets, df.paropt)
     priors_pop = setup_priors_pop(keys(mixed.fixed), keys(mixed.random); inv_case, scenario)
-    u0p = ComponentVector(state = df.u0[1], par = df.p[1])
-    pset_u0p = ODEProblemParSetter(system, u0p)
     _setuptools = (indiv_id, u0, p) -> setup_tools_indiv(indiv_id; inv_case, scenario,
-        system, pset_u0p, u0, p, keys_indiv = mixed_keys.indiv)
+        system, u0, p, keys_indiv = mixed_keys.indiv)
     #_tools = _setuptools(df.indiv_id[1], df.u0[1], df.p[1])
     DataFrames.transform!(df,
         [:indiv_id, :u0, :p] => DataFrames.ByRow(_setuptools) => :tools)
@@ -51,7 +49,7 @@ function setup_tools_mixed(p_indiv::DataFrame;
     effect_pos = MTKHelpers.attach_axis(1:length(sample0), MTKHelpers._get_axis(sample0))
     problemupdater = get_problemupdater(inv_case; scenario)
     #
-    pop_info = (;psets, problemupdater, pset_u0p, priors_pop, sample0, effect_pos)
+    pop_info = (;psets, problemupdater, priors_pop, sample0, effect_pos)
     (; mixed, pop_info, indiv_info = df)
 end
 

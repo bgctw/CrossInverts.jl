@@ -7,11 +7,11 @@ function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     @variables x(..)[1:n_comp] dec2(..) #dx(t)[1:2]  # observed dx now can be accessed
     #sts = @variables x[1:n_comp](t) 
     #ps = @parameters τ=τ p[1:n_comp]=p i=i       # parameters
-    ps = @parameters τ=τ i=i p[1:3]=p
+    ps = @parameters τ=τ i=i i2 p[1:3]=p 
     sts = vcat([x(t)[i] for i in 1:n_comp], dec2(t))
     eq = [
         D(x(t)[1]) ~ i - p[1] * x(t)[1] + (p[2] - x(t)[1]^2) / τ,
-        D(x(t)[2]) ~ i - dec2(t),
+        D(x(t)[2]) ~ i - dec2(t) + i2,
         dec2(t) ~ p[3] * x(t)[2], # observable
     ]
     #ODESystem(eq, t; name)
@@ -62,49 +62,6 @@ function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symb
     dd
 end
 
-# function get_indiv_parameters(inv_case::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
-#     #TODO replace by get_indiv_parameters_from_priors
-#     @named sv = samplesystem_vec()
-#     @named system = embed_system(sv)
-#     #_dict_nums = get_system_symbol_dict(system)
-#     # setup a problem, numbers do not matter, because set below from prior mean
-#     t = [0.2, 0.4, 1.0, 2.0]
-#     p_siteA = ComponentVector(sv₊x = [1.1, 2.1], sv₊i = 4)
-#     st = Dict(Symbolics.scalarize(sv.x .=> p_siteA.sv₊x))
-#     p_new = Dict(sv.i .=> p_siteA.sv₊i)
-#     problem = ODEProblem(system, st, (0.0, 2.0), p_new)
-
-#     priors_dict = get_priors_dict(inv_case, :A; scenario)
-#     _m = Dict(k => mean(v) for (k, v) in priors_dict)
-#     fixed = ComponentVector(sv₊p = _m[:sv₊p])
-#     random = ComponentVector(sv₊x = _m[:sv₊x], sv₊τ = _m[:sv₊τ])
-#     indiv = ComponentVector(sv₊i = _m[:sv₊i])
-#     popt = vcat_statesfirst(fixed, random, indiv; system)
-#     psets = setup_psets_fixed_random_indiv(keys(fixed), keys(random); system, popt)
-#     pset = ODEProblemParSetter(system, popt)
-#     problem = remake(problem, popt, pset)
-
-#     p_A = (label_state(pset, problem.u0), label_par(pset, problem.p)) # Tuple (u0, p)
-#     # multiply random effects for sites B and C
-#     priors_random = dict_to_cv(keys(random), get_priors_random_dict(inv_case; scenario))
-#     rng = StableRNG(234)
-#     _get_u0p_ranef = () -> begin
-#         probo = sample_and_add_ranef(problem, priors_random, rng; psets)
-#         (label_state(pset, probo.u0), label_par(pset, probo.p))
-#     end
-#     #_get_u0p_ranef()
-#     p_indiv = rename(DataFrame([
-#             (:A, p_A...),
-#             (:B, _get_u0p_ranef()...),
-#             (:C, _get_u0p_ranef()...),
-#         ]), ["indiv_id", "u0", "p"])
-#     # ComponentVector(A=p_A, B=_get_u0p_ranef(), C=_get_u0p_ranef())
-#     if :modify_fixed ∈ scenario
-#         # modify fixed parameters of third indiv_id
-#         p_indiv.p[3].sv₊p = p_indiv.p[3].sv₊p .* 1.05
-#     end
-#     p_indiv
-# end
 
 function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
         scenario = NTuple{0, Symbol}())

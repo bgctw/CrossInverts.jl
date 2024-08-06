@@ -26,14 +26,16 @@ indiv_ids = (:A, :B, :C)
 #p_indiv = CP.get_indiv_parameters(inv_case)
 #priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)    
 p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
-    system)
+    system, 
+    p_default = CA.ComponentVector(sv₊i2 = 0.1)
+    )
 
 # get the sizes of ComponentVectors from prior means
 # actual values are overridden below from site, after psets.opt is available
 (; mixed, indiv_info, pop_info) = setup_tools_mixed(p_indiv;
     inv_case, scenario, system, mixed_keys)
 (; fixed, random, indiv, indiv_random) = mixed
-(; psets, problemupdater, pset_u0p, priors_pop, sample0, effect_pos) = pop_info
+(; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
 
 @testset "setup_psets_mixed" begin
     priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
@@ -45,17 +47,14 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
     @test all((:fixed, :random, :indiv, :popt) .∈ Ref(keys(psets)))
     (_fixed, _random, _indiv1, _popt) = mean_priors_mixed
     @test psets.fixed isa ODEProblemParSetter
-    # when setting u0 and p make sure provide same order as in pset_u0p
-    # which gets the order from p_indiv
-    #    default order from psets.popt, created in setup_psets_mixed(mixed_keys; system
-    #    which has the order of parameters(system)
-    # Hence, if one wants to set u0 and p -> adjust order in p_indiv before
-    #    or index into u0 and p using eys_state(pset_u0p)
     _tools = setup_tools_indiv(:A; inv_case, scenario, system,
-        keys_indiv = mixed_keys.indiv, pset_u0p = pop_info.pset_u0p,
-        u0 = _popt[keys_state(pset_u0p)], p = _popt[keys_par(pset_u0p)])
-    @test flatten1(get_paropt_labeled(pop_info.pset_u0p, _tools.problem)) == 
-        _popt[keys_paropt(pop_info.pset_u0p)]
+        keys_indiv = mixed_keys.indiv,
+        u0 = _popt[filter(∈(keys_state(psets.fixed)), keys(_popt))], 
+        p = _popt[filter(∈(keys_par(psets.fixed)), keys(_popt))],
+        p_default = CA.ComponentVector(sv₊i2 = 0.1)
+        )
+    @test flatten1(get_paropt_labeled(psets.fixed, _tools.problem)) == 
+        _popt[keys_paropt(psets.fixed)]
     @test flatten1(get_paropt_labeled(psets.fixed, _tools.problem)) == _fixed
     @test flatten1(get_paropt_labeled(psets.random, _tools.problem)) == _random
     @test flatten1(get_paropt_labeled(psets.indiv, _tools.problem)) == _indiv1

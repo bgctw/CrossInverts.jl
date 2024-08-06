@@ -85,11 +85,12 @@ end
             system,
             sitedata = get_indivdata(inv_case, indiv_id; scenario),
             tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
-            pset_u0p, 
             u0 = nothing,
             p = nothing,
             keys_indiv = NTuple{0, Symbol}(),
             priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
+            u0_default = ComponentVector(),
+            p_default = ComponentVector(),
             )
 
 Compiles the information and tools for individuals.
@@ -100,31 +101,34 @@ function setup_tools_indiv(indiv_id;
         system,
         sitedata = get_indivdata(inv_case, indiv_id; scenario),
         tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
-        pset_u0p, 
         u0 = nothing,
         p = nothing,
         keys_indiv = NTuple{0, Symbol}(),
         priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
+        u0_default = ComponentVector(),
+        p_default = ComponentVector(),
         )
     #Main.@infiltrate_main
     sys_num_dict = get_system_symbol_dict(system)
     # default u0 and p from expected value of priors
+    u0_vars = unique(symbol_op.(unknowns(system)))
     if isnothing(u0)
-        priors_u0 = dict_to_cv(unique(symbol_op.(unknowns(system))), priors_dict)
+        missing_vars = [v for v in u0_vars if v ∉ keys(priors_dict)]
+        priors_u0 = dict_to_cv(setdiff(u0_vars, missing_vars), priors_dict)
         u0 = meandist2componentarray(priors_u0)
     end
+    p_vars = unique(symbol_op.(parameters(system)))
     if isnothing(p)
-        priors_p = dict_to_cv(unique(symbol_op.(parameters(system))), priors_dict)
+        missing_vars = [v for v in p_vars if v ∉ keys(priors_dict)]
+        priors_p = dict_to_cv(setdiff(p_vars, missing_vars), priors_dict)
         p = meandist2componentarray(priors_p)
     end
-    u0p = ComponentVector(state = u0, par = p)
-    problem = ODEProblem(system, system_num_dict(u0, sys_num_dict), tspan,
-        system_num_dict(p, sys_num_dict))
+    u0p = ComponentVector(
+        state = ComponentVector(u0_default; u0...), # mreging to defaults
+        par = ComponentVector(p_default; p...))
+    problem = ODEProblem(system, system_num_dict(u0p.state, sys_num_dict), tspan,
+        system_num_dict(u0p.par, sys_num_dict))
     #
-    problem = remake(problem, u0p, pset_u0p)
-    #
-    #popt_l = label_paropt(pset_u0p, u0p) # axis with split state and par
-    #popt_flat = flatten1(popt_l)
     priors_indiv = dict_to_cv(keys_indiv, priors_dict)
     #
     (;priors_indiv, problem, sitedata)
@@ -275,7 +279,10 @@ end
             scenario, system,
             rng = StableRNG(234),
             priors_dict = get_priors_dict(inv_case, missing; scenario),
-            priors_random_dict = get_priors_random_dict(inv_case; scenario),)
+            priors_random_dict = get_priors_random_dict(inv_case; scenario),
+            u0_default = ComponentVector(),
+            p_default = ComponentVector(),
+            )
 
 Construct a DataFrame with parameters across sites with 
 - fixed parameters corresponding to the mean of its prior
@@ -294,7 +301,10 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
         system,
         rng = StableRNG(234),
         priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario),
-        priors_random_dict = get_priors_random_dict(inv_case; scenario))
+        priors_random_dict = get_priors_random_dict(inv_case; scenario),
+        u0_default = ComponentVector(),
+        p_default = ComponentVector(),
+        )
     priors_random = dict_to_cv(mixed_keys.random, priors_random_dict)
     # priors_dict may differ across indiv -> mixed.random and mixed.popt differ
     mixed_indiv = (;
@@ -308,16 +318,9 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
     # need to construct problem to properly account for default values
     sdict = get_system_symbol_dict(system)
     problem_indiv = map(popt_indiv) do popt
-        # TODO: scalarize might not work for discretized
-        # because state may not contain locations at the boundaries
-        u0s_vec = [Symbolics.scalarize(sdict[k] .=> popt.state[k])
-                   for
-                   k in keys(popt.state)]
-        u0s = reduce(vcat, u0s_vec)
-        ps_vec = [Symbolics.scalarize(sdict[k] .=> popt.par[k]) for
-                  k in keys(popt.par)]
-        ps = reduce(vcat, ps_vec)
-        ODEProblem(system, u0s, (0.0, 2.0), ps)
+        u0_numdict = system_num_dict(ComponentVector(u0_default; popt.state...), sdict)        
+        p_numdict = system_num_dict(ComponentVector(p_default; popt.par...), sdict)
+        ODEProblem(system, u0_numdict, (0.0, 2.0), p_numdict)
     end
     # setup DataFrame and modify u0,p on non-first-row afterwards
     df = DataFrame(indiv_id = collect(indiv_ids), problem = problem_indiv)
