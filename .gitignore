@@ -6,3 +6,5 @@
 /docs/build/
 dev/
 test/Manifest.toml
+docs/tmp/*
+tmp/
