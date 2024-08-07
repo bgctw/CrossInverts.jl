@@ -23,12 +23,12 @@ function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     n_comp = 2
     @parameters t
     D = Differential(t)
-    @variables x(..)[1:n_comp] dec2(..) #dx(t)[1:2]  # observed dx now can be accessed
-    ps = @parameters τ=τ i=i p[1:3]=p
+    @variables x(..)[1:n_comp] dec2(..) 
+    ps = @parameters τ=τ i=i i2 p[1:3]=p
     sts = vcat([x(t)[i] for i in 1:n_comp], dec2(t))
     eq = [
         D(x(t)[1]) ~ i - p[1] * x(t)[1] + (p[2] - x(t)[1]^2) / τ,
-        D(x(t)[2]) ~ i - dec2(t),
+        D(x(t)[2]) ~ i - dec2(t) + i2,
         dec2(t) ~ p[3] * x(t)[2], # observable
     ]
     sys = ODESystem(eq, t, sts, vcat(ps...); name)
@@ -41,7 +41,7 @@ end
 
 First, we define which parameters should be calibrated as fixed, random, or
 individual parameters. Note, that we can use symbols rather than Symbolics,
-and can use symbolic arrarys rather than requiring the scalarized version.
+and can use symbolic arrays rather than requiring the scalarized version.
 ```@example doc
 mixed_keys = (;
     fixed = (:sv₊p,),
@@ -60,8 +60,9 @@ This is achieved by overriding specific functions with the first argument being
 a specific subtype of [AbstractCrossInversionCase](@ref) corresponding to the inversion problem.
 
 Here, we define singleton type `DocuVecCase` and provide priors with function 
-[`get_priors_dict`](@ref). For simplicity we return the same priors independent of the individual
-or the scenario.
+[`get_priors_dict`](@ref). For simplicity we return the same priors independent 
+of the individual or the scenario. Take care to add methods to the function in
+module `CrossInverts` rather define the function in module `Main`.
 For the SymbolicArray parameters, we need to provide a Multivariate distribution.
 Here, we provide a product distribution of uncorrelated LogNormal distributions,
 which are specified by its mode and upper quantile using [`df_from_paramsModeUpperRows`](@ref).
@@ -251,15 +252,33 @@ end
 get_indivdata(inv_case, :A; scenario)
 ```
 
+Often, when one parameter is adjusted, this has consequences for other non-optimized
+parameters. Function [`get_problemupdater`](@ref) allows to provide a `ParameterUpdater` 
+to take care.
+In this example, when optimizing parameter i, then parameter i2 is set to the
+same value.
+
+```@example doc
+function CrossInverts.get_problemupdater(::DocuVecCase; system, scenario = NTuple{0, Symbol}())
+    mapping = (:sv₊i => :sv₊i2,)
+    pset = ODEProblemParSetter(system, Symbol[]) # parsetter to get state symbols
+    get_ode_problemupdater(KeysProblemParGetter(mapping, keys(axis_state(pset))), system)
+end
+
+get_problemupdater(inv_case; system, scenario)
+```
+
 ## Extracting initial information and tools
 
 A first estimate of the optimized initial state and parameters can then be obtained
-from priors using function [`get_indiv_parameters_from_priors`](@ref), 
-and a set of tools is created using function [`setup_tools_mixed`](@ref)
+from priors using function [`get_indiv_parameters_from_priors`](@ref).
+Because parameter `i2` is not optimized, we specify a value rather than a prior.
+Next a set of tools is created using function [`setup_tools_mixed`](@ref)
 
 ```@example doc
 p_indiv = get_indiv_parameters_from_priors(inv_case; 
-    scenario, indiv_ids, mixed_keys, system)
+    scenario, indiv_ids, mixed_keys, system,
+    p_default=CA.ComponentVector(sv₊i2 = 0.1))
 (;mixed, indiv_info, pop_info) = setup_tools_mixed(p_indiv;
     inv_case, scenario, system, mixed_keys)
 #(psets, priors_pop, sample0, effect_pos) = pop_info
@@ -307,6 +326,14 @@ sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
 (sol, problem_opt) = sols_probs[1]
 sol[:sv₊x]
 nothing # hide
+```
+
+Below we just check that the `ProblemUpdater` really updated the non-optimized
+parameter `i2` to the value of the optimized parameter `i`.
+
+```@example doc
+pset = pop_info.psets.fixed
+get_par_labeled(pset, problem_opt)[:sv₊i2] == get_par_labeled(pset, problem_opt)[:sv₊i]
 ```
 
 ## Model Inversion

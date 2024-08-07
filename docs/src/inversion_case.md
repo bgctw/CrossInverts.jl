@@ -10,6 +10,7 @@ get_priors_dict
 get_priors_random_dict
 get_obs_uncertainty_dist_type
 get_indivdata
+get_problemupdater
 df_from_paramsModeUpperRows
 ```
 

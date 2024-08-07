@@ -47,7 +47,7 @@ function setup_tools_mixed(p_indiv::DataFrame;
         priors_pop.random_σ;
         indiv_ids = df.indiv_id)
     effect_pos = MTKHelpers.attach_axis(1:length(sample0), MTKHelpers._get_axis(sample0))
-    problemupdater = get_problemupdater(inv_case; scenario)
+    problemupdater = get_problemupdater(inv_case; system, scenario)
     #
     pop_info = (;psets, problemupdater, priors_pop, sample0, effect_pos)
     (; mixed, pop_info, indiv_info = df)

@@ -37,6 +37,11 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
 (; fixed, random, indiv, indiv_random) = mixed
 (; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
 
+@testset "setup_tools_mixed" begin
+    @test problemupdater isa ProblemUpdater
+    @test problemupdater.pget.source_keys == (:sv₊i,)
+end;
+
 @testset "setup_psets_mixed" begin
     priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
     mean_priors_mixed = CP.mean_priors(;
@@ -83,7 +88,12 @@ sim_sols_probs = gen_sim_sols_probs(;
     sol([0.3, 0.35]; idxs = [sv.dec2, sv.dec2])
     @test all(sol([0.3, 0.35]; idxs = sv.dec2).u .> 0) # observed at a interpolated times
     solA0 = solve(indiv_info.tools[1].problem, solver)
-
+    # check that Problemupdater also pdated i2 to optimized i
+    @test get_par_labeled(psets.fixed, problem_opt)[:sv₊i2] == 
+        get_par_labeled(psets.fixed, problem_opt)[:sv₊i]
+    @test get_par_labeled(psets.fixed, problem_opt)[:sv₊i2] ≠ 
+        get_par_labeled(psets.fixed, indiv_info.tools[1].problem)[:sv₊i2]  
+    #
     sim_sols = gen_sim_sols(; 
         tools = indiv_info.tools, psets = pop_info.psets, 
         problemupdater = pop_info.problemupdater, solver, maxiters = 1e4)
@@ -135,6 +145,7 @@ end
     @test names(chn2) == [Symbol("indiv_random[:sv₊x, 2][1]"),
         Symbol("indiv_random[:sv₊x, 2][2]"), Symbol("indiv_random[:sv₊τ, 2]")]
 end;
+
 
 tmpf = () -> begin
     #experiment with accessing subgroups

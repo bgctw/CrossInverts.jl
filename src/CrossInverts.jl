@@ -17,6 +17,7 @@ using PDMats: PDiagMat
 
 export AbstractCrossInversionCase
 export get_priors_dict, get_priors_random_dict, get_obs_uncertainty_dist_type, get_indivdata
+export get_problemupdater
 export setup_tools_indiv, dict_to_cv
 export get_priors_dict_indiv, get_indiv_parameters_from_priors
 export df_from_paramsModeUpperRows

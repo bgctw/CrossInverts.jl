@@ -4,7 +4,7 @@ function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     n_comp = 2
     @parameters t
     D = Differential(t)
-    @variables x(..)[1:n_comp] dec2(..) #dx(t)[1:2]  # observed dx now can be accessed
+    @variables x(..)[1:n_comp] dec2(..) #dx(t)[1:2]  
     #sts = @variables x[1:n_comp](t) 
     #ps = @parameters τ=τ p[1:n_comp]=p i=i       # parameters
     ps = @parameters τ=τ i=i i2 p[1:3]=p 
@@ -235,3 +235,11 @@ function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Sym
                 ])))
     data[indiv_id]
 end
+
+function get_problemupdater(::SampleSystemVecCase; system, scenario = NTuple{0, Symbol}())
+    mapping = (:sv₊i => :sv₊i2,)
+    pset = ODEProblemParSetter(system, Symbol[]) # parsetter to get state symbols
+    get_ode_problemupdater(KeysProblemParGetter(mapping, keys(axis_state(pset))), system)
+end
+
+

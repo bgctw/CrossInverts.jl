@@ -57,7 +57,7 @@ Concrete types should implement
   Type of distribution of observation-uncertainty per stream.
 - `get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)`
   The times, observations, and uncertainty parameters per indiv_id and stream.
-- `get_problemupdater(::AbstractCrossInversionCase; scenario)`
+- `get_problemupdater(::AbstractCrossInversionCase; system, scenario)`
   A ProblemUpdater for ensuring consistent parameters after setting optimized 
   parameters.
 """
@@ -68,13 +68,14 @@ abstract type AbstractCrossInversionCase end
 
 Return a specific `ProblemUpdater` for given Inversioncase and scennario.
 It is applied after parameters to optimized have been set. The typical
-case is optimizing a single parameter, but adjusting other parameters to
+case is optimizing a parameter, but adjusting other non-optimized parameters to
 be consistent with the optimized one, e.g. always use the same value for
 another parameter.
 
 The default is a `NullProblemUpdater`, which does not modify parameters.    
 """
-function get_problemupdater(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+function get_problemupdater(::AbstractCrossInversionCase; 
+    system, scenario = NTuple{0, Symbol}())
     NullProblemUpdater()
 end
 
