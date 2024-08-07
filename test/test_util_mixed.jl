@@ -12,29 +12,37 @@ using PDMats: PDiagMat
 using Turing
 using Logging, LoggingExtras
 
-@named sv = CP.samplesystem_vec()
-@named system = embed_system(sv)
 inv_case = SampleSystemVecCase()
 scenario = NTuple{0, Symbol}()
 
-mixed_keys = (;
-    fixed = (:sv₊p,),
-    random = (:sv₊x, :sv₊τ),
-    indiv = (:sv₊i,))
+tmpf = () -> begin
+    @named sv = CP.samplesystem_vec()
+    @named system = embed_system(sv)
 
-indiv_ids = (:A, :B, :C)
-#p_indiv = CP.get_indiv_parameters(inv_case)
-#priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)    
-p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
-    system, 
-    p_default = CA.ComponentVector(sv₊i2 = 0.1)
-    )
+    mixed_keys = (;
+        fixed = (:sv₊p,),
+        random = (:sv₊x, :sv₊τ),
+        indiv = (:sv₊i,))
 
-# get the sizes of ComponentVectors from prior means
-# actual values are overridden below from site, after psets.opt is available
-(; mixed, indiv_info, pop_info) = setup_tools_mixed(p_indiv;
-    inv_case, scenario, system, mixed_keys)
-(; fixed, random, indiv, indiv_random) = mixed
+    indiv_ids = (:A, :B, :C)
+
+    #p_indiv = CP.get_indiv_parameters(inv_case)
+    #priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)    
+    p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
+        system, 
+        p_default = CA.ComponentVector(sv₊i2 = 0.1)
+        )
+
+    # get the sizes of ComponentVectors from prior means
+    # actual values are overridden below from site, after psets.opt is available
+    (; mixed, indiv_info, pop_info) = setup_tools_mixed(p_indiv;
+        inv_case, scenario, system, mixed_keys)
+end
+
+
+(;system, indiv_info, pop_info) = setup_inversion(inv_case; scenario)
+
+(; fixed, random, indiv, indiv_random) = pop_info.mixed
 (; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
 
 @testset "setup_tools_mixed" begin
@@ -43,6 +51,8 @@ p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_
 end;
 
 @testset "setup_psets_mixed" begin
+    indiv_ids = pop_info.indiv_ids
+    mixed_keys = pop_info.mixed_keys
     priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
     mean_priors_mixed = CP.mean_priors(;
         mixed_keys,
@@ -72,6 +82,7 @@ sim_sols_probs = gen_sim_sols_probs(;
     problemupdater = pop_info.problemupdater, solver)
 
 @testset "simsols" begin
+    mixed_keys = pop_info.mixed_keys
     sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
     (sol, problem_opt) = sols_probs[1]
     popt1 = flatten1(get_paropt_labeled(psets.popt, indiv_info.tools[1].problem))
@@ -83,7 +94,8 @@ sim_sols_probs = gen_sim_sols_probs(;
     @test popt2[keys(random)] == indiv_info.paropt[1][keys(random)]
     @test popt2[mixed_keys.indiv] == indiv_info.paropt[1][mixed_keys.indiv]
     sol = first(sols_probs).sol
-    @test all(sol[sv.x][1] .== p_indiv.u0[1]) # here all state random effects
+    sv = system.sv
+    @test all(sol[sv.x][1] .== indiv_info.u0[1]) # here all state random effects
     sol[sv.x]
     sol([0.3, 0.35]; idxs = [sv.dec2, sv.dec2])
     @test all(sol([0.3, 0.35]; idxs = sv.dec2).u .> 0) # observed at a interpolated times

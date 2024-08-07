@@ -7,7 +7,18 @@ CurrentModule = CrossInverts
 This example demonstrates how 
 using an example system with symbolic array state and symbolic array parameters.
 
-## Example system
+## Inversion setup
+The inversion setup is given by overriding specific functions with the first argument being
+a specific subtype of [AbstractCrossInversionCase](@ref) corresponding to the inversion problem.
+
+Here, we define singleton type `DocuVecCase` and provide inversion setup 
+with defining methods for this type.
+Take care to add methods to the function in
+module `CrossInverts` rather define the methods in module `Main`.
+
+### Example system
+
+First lets setup the system to be inverted, using function [`get_inverted_system`](@ref).
 
 ```@example doc
 using ModelingToolkit, OrdinaryDiffEq 
@@ -34,21 +45,40 @@ function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     sys = ODESystem(eq, t, sts, vcat(ps...); name)
 end
 
-@named sv = samplesystem_vec()
-@named system = embed_system(sv)
-```
+struct DocuVecCase <: AbstractCrossInversionCase end
 
+function CrossInverts.get_inverted_system(::DocuVecCase; scenario)
+    @named sv = samplesystem_vec()
+    @named system = embed_system(sv)
+    u0_default = CA.ComponentVector() 
+    p_default = CA.ComponentVector(sv₊i2 = 0.1)
+    (;system, u0_default, p_default)
+end
+
+inv_case = DocuVecCase()
+scenario = NTuple{0, Symbol}()
+(;system, u0_default, p_default) = get_inverted_system(inv_case; scenario)
+system
+```
+Here, some parameters have default values, others, suche as sv₊i2, need to specified
+with with returned `ComponentVector` `p_default`.
+
+### Optimized parameters and individuals
 
 First, we define which parameters should be calibrated as fixed, random, or
-individual parameters. Note, that we can use symbols rather than Symbolics,
-and can use symbolic arrays rather than requiring the scalarized version.
-```@example doc
-mixed_keys = (;
-    fixed = (:sv₊p,),
-    random = (:sv₊x, :sv₊τ),
-    indiv = (:sv₊i,),)
+individual parameters using function [`get_mixed_keys`](@ref).
+Next, we define which individuals take part in the inversion scenario using
+function [`get_indiv_ids`](@ref)
 
-indiv_ids = (:A, :B, :C)
+```@example doc
+function CrossInverts.get_mixed_keys(::AbstractCrossInversionCase; scenario)
+    (;
+        fixed = (:sv₊p,),
+        random = (:sv₊x, :sv₊τ),
+        indiv = (:sv₊i,))
+end
+
+CrossInverts.get_indiv_ids(::DocuVecCase; scenario) = (:A, :B, :C)
 nothing # hide
 ```
 
@@ -56,20 +86,15 @@ nothing # hide
 
 We need to provide additional information to the inversion, such as observations,
 observation uncertainties, and prior distribution.
-This is achieved by overriding specific functions with the first argument being
-a specific subtype of [AbstractCrossInversionCase](@ref) corresponding to the inversion problem.
 
-Here, we define singleton type `DocuVecCase` and provide priors with function 
+We provide priors with function 
 [`get_priors_dict`](@ref). For simplicity we return the same priors independent 
-of the individual or the scenario. Take care to add methods to the function in
-module `CrossInverts` rather define the function in module `Main`.
+of the individual or the scenario. 
 For the SymbolicArray parameters, we need to provide a Multivariate distribution.
 Here, we provide a product distribution of uncorrelated LogNormal distributions,
 which are specified by its mode and upper quantile using [`df_from_paramsModeUpperRows`](@ref).
 
 ```@example doc
-struct DocuVecCase <: AbstractCrossInversionCase end
-
 function CrossInverts.get_priors_dict(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
@@ -94,9 +119,6 @@ function product_MvLogNormal(comp...)
     Σ = PDiagMat(exp.(σ))
     MvLogNormal(μ, Σ)
 end
-
-inv_case = DocuVecCase()
-scenario = NTuple{0, Symbol}()
 
 get_priors_dict(inv_case, :A; scenario)
 ```
@@ -267,21 +289,16 @@ end
 
 get_problemupdater(inv_case; system, scenario)
 ```
+### Compiling the setup
 
-## Extracting initial information and tools
+With all the functions of the setup defined, we can call function 
+[`setup_inversion`](@ref) to compile all the setup.
+We get the system object, information at population level, and information
+at individual level as a `DataFrame`.
 
-A first estimate of the optimized initial state and parameters can then be obtained
-from priors using function [`get_indiv_parameters_from_priors`](@ref).
-Because parameter `i2` is not optimized, we specify a value rather than a prior.
-Next a set of tools is created using function [`setup_tools_mixed`](@ref)
 
 ```@example doc
-p_indiv = get_indiv_parameters_from_priors(inv_case; 
-    scenario, indiv_ids, mixed_keys, system,
-    p_default=CA.ComponentVector(sv₊i2 = 0.1))
-(;mixed, indiv_info, pop_info) = setup_tools_mixed(p_indiv;
-    inv_case, scenario, system, mixed_keys)
-#(psets, priors_pop, sample0, effect_pos) = pop_info
+(;system, indiv_info, pop_info) = setup_inversion(inv_case; scenario)
 keys(pop_info.sample0)
 ```
 
@@ -294,7 +311,7 @@ A single sample is a ComponentVector with components
 
 A reminder of the effects:
 ```@example doc
-mixed_keys
+pop_info.mixed_keys
 ```
 
 Accessing single components.
@@ -321,7 +338,7 @@ solver = AutoTsit5(Rodas5P())
 sim_sols_probs = gen_sim_sols_probs(; 
     tools = indiv_info.tools, psets = pop_info.psets, 
     problemupdater = pop_info.problemupdater, solver)
-(fixed, random, indiv, indiv_random) = mixed
+(fixed, random, indiv, indiv_random) = pop_info.mixed
 sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
 (sol, problem_opt) = sols_probs[1]
 sol[:sv₊x]
@@ -372,7 +389,7 @@ as described in [Extracting effects from sampled object].
 
 ```@example doc
 chn2 = chn[:,vcat(pop_info.effect_pos[:indiv_random][:B]...),:]
-chn3 = extract_group(chn2, :indiv_random, indiv_ids)
+chn3 = extract_group(chn2, :indiv_random, pop_info.indiv_ids)
 names(chn3)
 ```
 

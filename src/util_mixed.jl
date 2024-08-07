@@ -1,4 +1,31 @@
 """
+    setup_inversion(inv_case::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+
+Calls all the functions for specific [`AbstractCrossInversionCase`](@ref) to setup the
+inversion.
+
+Returns a `NamedTuple` with entries: `(; system, indiv_info, pop_info)`
+See [`setup_tools_mixed`](@ref) for a description of `indiv_info` and `pop_info`.
+Additional components of `pop_info` are
+- `mixed_keys`: The optimized parameters and their distribution across individual 
+  as returned by [`get_mixed_keys]`(@ref)
+- `indiv_ids`: A tuple of ids (Symbols) of the individuals taking part in the inversion, 
+  as returned by [`get_indiv_ids]`(@ref)
+
+"""
+function setup_inversion(inv_case::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+    (;system, u0_default, p_default) = get_inverted_system(inv_case; scenario)
+    mixed_keys = get_mixed_keys(inv_case; scenario)
+    indiv_ids = get_indiv_ids(inv_case; scenario)
+    p_indiv = get_indiv_parameters_from_priors(inv_case; 
+        scenario, indiv_ids, mixed_keys, system, u0_default, p_default)
+    (; pop_info, indiv_info) = setup_tools_mixed(p_indiv; 
+        inv_case, scenario, system, mixed_keys)
+    pop_info = (;mixed_keys, indiv_ids, pop_info..., )    
+    (; system, indiv_info, pop_info)
+end
+
+"""
 setup_tools_mixed(p_indiv::DataFrame;
         inv_case, scenario = NTuple{0, Symbol}(), 
         system, mixed_keys,
@@ -49,75 +76,9 @@ function setup_tools_mixed(p_indiv::DataFrame;
     effect_pos = MTKHelpers.attach_axis(1:length(sample0), MTKHelpers._get_axis(sample0))
     problemupdater = get_problemupdater(inv_case; system, scenario)
     #
-    pop_info = (;psets, problemupdater, priors_pop, sample0, effect_pos)
-    (; mixed, pop_info, indiv_info = df)
+    pop_info = (;mixed, psets, problemupdater, priors_pop, sample0, effect_pos)
+    (; pop_info, indiv_info = df)
 end
-
-# """
-#     gen_compute_indiv_rand(pset, random)
-
-# Generate a function closure `compute_indiv_rand(u0, p)` that for each population
-# random effect-mean `random` computes the individual random effect.
-# It uses the provided `ProblemParSetter` to extract the optimized parameters
-# from u0 and p.
-# It is used to get an initial estimate of the random effects given a population
-# mean, and the individual indiv_id parameters.
-# """
-# function gen_compute_indiv_rand(pset::AbstractProblemParSetter, random)
-#     let pset = pset, random = random
-#         compute_indiv_rand = (u0, p) -> begin
-#             local popt = get_paropt_labeled(pset, u0, p; flat1 = Val(true))
-#             # k = first(keys(random))
-#             gen = (popt[k] ./ random[k] for k in keys(random))
-#             v = reduce(vcat, gen)
-#             MTKHelpers.attach_axis(v, first(getaxes(random)))
-#         end
-#     end # let
-# end
-
-# """
-#     setup_psets_fixed_random_indiv(fixed, random; system, popt)
-
-# Setup the ProblemParSetters for given system and parameter names.
-# Assume, that parameters are fiven in flat format, i.e. not state and par labels.
-# Make sure, that popt holds state entries first.
-
-# Only the entries in fixed and random that are actually occurring
-# in popt_names are set.
-# The indiv parameters are the difference set between popt_names and the others.
-
-# Returns a NamedTuple with `ODEProblemParSetter` for `fixed`, `random`, and `indiv` parameters.
-# """
-# function setup_psets_fixed_random_indiv(keys_fixed, keys_random; system, popt)
-#     fixed1 = intersect(keys(popt), keys_fixed)
-#     random1 = intersect(keys(popt), keys_random)
-#     indiv1 = setdiff(keys(popt), union(fixed1, random1))
-#     psets = (;
-#         fixed = ODEProblemParSetter(system, popt[fixed1]),
-#         random = ODEProblemParSetter(system, popt[random1]),
-#         indiv = ODEProblemParSetter(system, popt[indiv1]),
-#         popt = ODEProblemParSetter(system, popt),)
-#     # k = :state
-#     # cvs = (popt,fixed,random)
-#     # tup = map(keys(popt)) do k
-#     #     keys_k = (;zip((:popt, :fixed, :random), map(x -> haskey(x,k) ? keys(x[k]) : NTuple{0,Symbol}(), cvs))...)
-#     #     fixed1 = intersect(keys_k.popt, keys_k.fixed)
-#     #     random1 = intersect(keys_k.popt, keys_k.random)
-#     #     opt_site1 = setdiff(keys_k.popt, union(fixed1, random1))
-#     #     popt[k][opt_site1]
-#     #     #isempty(opt_site1) ? ComponentVector() : opt_site1
-#     # end
-#     # indiv = ComponentVector(;zip(keys(popt),tup)...)
-#     # psets = (;
-#     #     fixed = ODEProblemParSetter(system, Axis(fixed1)),
-#     #     random = ODEProblemParSetter(system, Axis(random1)),
-#     #     indiv = ODEProblemParSetter(system, Axis(opt_site1)))
-#     # psets = (;
-#     #     fixed = ODEProblemParSetter(system, fixed),
-#     #     random = ODEProblemParSetter(system, random),
-#     #     indiv = ODEProblemParSetter(system, indiv))
-#     return psets
-# end
 
 """
     setup_psets_mixed(mixed_keys; system, popt)
@@ -175,123 +136,86 @@ function mean_priors(; mixed_keys, priors_dict, system)
 end
 
 """
-    sim_sols_probs(fixed, random, indiv, indiv_random)
+    setup_tools_indiv(indiv_id;
+            inv_case::AbstractCrossInversionCase, scenario,
+            system,
+            sitedata = get_indivdata(inv_case, indiv_id; scenario),
+            tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
+            u0 = nothing,
+            p = nothing,
+            keys_indiv = NTuple{0, Symbol}(),
+            priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
+            u0_default = ComponentVector(),
+            p_default = ComponentVector(),
+            )
 
-Update and simulate system (given with tools to gen_sim_sols_probs) by 
-- for each individual i
-  - update fixed parameters: fixed 
-  - update random parameters: random .* indiv_random[:,i]
-  - update indiv_id parameters: indiv[:,i]
-  - simulate the problem
-- return a vector(n_indiv) of (;sol, problem_opt)
-
-If non-optimized p and u0 differ between individuals, they must already be
-set in tools[i_indiv].problem.
+Compiles the information and tools for individuals.
+Returns a `NamedTuple`: `(;priors_indiv, problem, sitedata)`.
 """
-function gen_sim_sols_probs(; tools, psets, problemupdater, solver = AutoTsit5(Rodas5()), kwargs_gen...)
-    fLogger = EarlyFilteredLogger(current_logger()) do log
-        #@show log
-        !(log.level == Logging.Warn && log.group == :integrator_interface)
+function setup_tools_indiv(indiv_id;
+        inv_case::AbstractCrossInversionCase, scenario,
+        system,
+        sitedata = get_indivdata(inv_case, indiv_id; scenario),
+        tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
+        u0 = nothing,
+        p = nothing,
+        keys_indiv = NTuple{0, Symbol}(),
+        priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
+        u0_default = ComponentVector(),
+        p_default = ComponentVector(),
+        )
+    #Main.@infiltrate_main
+    sys_num_dict = get_system_symbol_dict(system)
+    # default u0 and p from expected value of priors
+    u0_vars = unique(symbol_op.(unknowns(system)))
+    if isnothing(u0)
+        missing_vars = [v for v in u0_vars if v ∉ keys(priors_dict)]
+        priors_u0 = dict_to_cv(setdiff(u0_vars, missing_vars), priors_dict)
+        u0 = meandist2componentarray(priors_u0)
     end
-    n_indiv = length(tools)
-    # see help on MTKHelpers.ODEProblemParSetterConcrete
-    fbarrier = () -> let solver = solver,
-        problems_indiv = map(t -> t.problem, tools),
-        psets = map(get_concrete, psets), problemupdater = get_concrete(problemupdater),
-        n_indiv = n_indiv,
-        kwargs_gen = kwargs_gen,
-        fLogger = fLogger
-        #, psetci_u_PlantNP=psetci_u_PlantNP 
-        kwargs_indiv_default = fill((), n_indiv)
-        #
-        (fixed, random, indiv, indiv_random; kwargs_indiv = kwargs_indiv_default, kwargs...) -> begin
-            map(1:n_indiv) do i_indiv
-                problem_opt = problems_indiv[i_indiv] # no need to copy, in update_statepar 
-                # remake Dict not inferred yet: problem_opt = @inferred remake(problem_opt, fixed, psets.fixed)
-                problem_opt = remake(problem_opt, fixed, psets.fixed)
-                problem_opt = remake(problem_opt,
-                    random .* indiv_random[:, i_indiv], psets.random)
-                problem_opt = remake(problem_opt, indiv[:, i_indiv], psets.indiv)
-                # make sure to use problemupdater on the last update
-                #problem_opt = @inferred problemupdater(problem_opt)
-                problem_opt = problemupdater(problem_opt)
-                #if !isempty(kwargs); problem_opt = remake(problem_opt; kwargs...); end
-                #local parl = label_par(psetci, problem_opt.p) #@inferred label_par(psetci, problem_opt.p)
-                #suppress does not work with MCMCThreads() sampling
-                #sol = @suppress solve(problem_opt, solver, maxiters = 1e4)
-                sol = with_logger(fLogger) do
-                    sol = solve(problem_opt, solver;
-                        kwargs_gen..., kwargs_indiv[i_indiv]..., kwargs...)
-                end
-                (; sol, problem_opt)
-            end # map 1:n_indiv
-        end # function  
-    end # let
-    sim_sols_probs = fbarrier()
-    return sim_sols_probs
+    p_vars = unique(symbol_op.(parameters(system)))
+    if isnothing(p)
+        missing_vars = [v for v in p_vars if v ∉ keys(priors_dict)]
+        priors_p = dict_to_cv(setdiff(p_vars, missing_vars), priors_dict)
+        p = meandist2componentarray(priors_p)
+    end
+    u0p = ComponentVector(
+        state = ComponentVector(u0_default; u0...), # mreging to defaults
+        par = ComponentVector(p_default; p...))
+    problem = ODEProblem(system, system_num_dict(u0p.state, sys_num_dict), tspan,
+        system_num_dict(u0p.par, sys_num_dict))
+    #
+    priors_indiv = dict_to_cv(keys_indiv, priors_dict)
+    #
+    (;priors_indiv, problem, sitedata)
 end
 
-function gen_sim_sols(; kwargs...)
-    sim_sols_probs = gen_sim_sols_probs(; kwargs...)
-    gen_sim_sols(sim_sols_probs)
+"""
+Put priors for fixed, random, and random_σ into a ComponentVector.
+The indiv priors can be indiv_id-specific, they are setup in `setup_tools_indiv`.     
+"""
+function setup_priors_pop(keys_fixed, keys_random;
+        inv_case::AbstractCrossInversionCase, scenario,
+        priors_dict = get_priors_dict(inv_case, missing; scenario),
+        priors_random_dict = get_priors_random_dict(inv_case; scenario))
+    (;
+        fixed = dict_to_cv(keys_fixed, priors_dict),
+        random = dict_to_cv(keys_random, priors_dict),
+        random_σ = dict_to_cv(keys_random, priors_random_dict)
+    )
 end
 
-# feed a single poptl NamedTuple
-# after calling sim_sols_probs, extract the sol component
-function gen_sim_sols(sim_sols_probs)
-    let sim_sols_probs = sim_sols_probs
-        (poptl; kwargs...) -> begin
-            res_sim = sim_sols_probs(poptl.fixed, poptl.random, poptl.indiv,
-                poptl.indiv_random;
-                kwargs...)
-            map(x -> x.sol, res_sim)
+"""
+Take a ComponentArray of possibly multivariate distributions
+and return a new ComponentArray of means of each distribution.
+"""
+meandist2componentarray = function (priors)
+    # need to first create several ComponentVectors and then reduce
+    # otherwise map on mixing Scalars and Vectors yields eltype any
+    @chain priors begin
+        map(keys(_)) do k
+            ComponentVector(NamedTuple{(k,)}(Ref(mean(_[k]))))
         end
+        reduce(vcat, _)
     end
-end
-
-# function sample_and_add_ranef(problem,
-#         priors_random::ComponentVector,
-#         rng::AbstractRNG = default_rng();
-#         psets)
-#     keys_random = keys(priors_random)
-#     #keys_gen = (k for k in keys_random) # mappring directly of keys does not work
-#     #kp = first(keys(random))
-#     tup = map(keys_random) do kp
-#         dist_sigma = priors_random[kp]
-#         #σ = mean(dist_sigma)
-#         σ = rand(rng, dist_sigma)
-#         dim_d = length(dist_sigma)
-#         len_σ = length(σ)
-#         dist = (len_σ == 1) ?
-#                fit_mean_Σ(LogNormal, 1, σ) :
-#                fit_mean_Σ(MvLogNormal, fill(1, len_σ), PDiagMat(exp.(σ)))
-#         rand(rng, dist)
-#     end
-#     ranef = ComponentVector(; zip(keys_random, tup)...)
-#     paropt_r = get_paropt_labeled(psets.random, problem) .* ranef
-#     remake(problem, paropt_r, psets.random)
-# end
-
-function sample_random(inv_case::AbstractCrossInversionCase, random; scenario,
-        rng::AbstractRNG = Random.default_rng())
-    priors_random_dict = get_priors_random_dict(inv_case; scenario)
-    priors_random = dict_to_cv(keys(random), priors_random_dict)
-    random .* sample_ranef(rng, priors_random)
-end
-
-function sample_ranef(rng, priors_random)
-    gen = (begin
-        dist_sigma = priors_random[kp]
-        #σ = mean(dist_sigma)
-        σ = rand(rng, dist_sigma)
-        #dim_d = length(dist_sigma)
-        len_σ = length(σ)
-        dist = (len_σ == 1) ?
-               fit_mean_Σ(LogNormal, 1, σ) :
-               fit_mean_Σ(MvLogNormal, fill(1, len_σ), PDiagMat(σ .^ 2))
-        r = rand(rng, dist)
-        (kp, r)
-    end
-           for kp in keys(priors_random))
-    ComponentVector(; gen...)
 end

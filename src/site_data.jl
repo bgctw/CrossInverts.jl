@@ -49,6 +49,9 @@ Interface for providing all relevant information for a cross-individual
 mixed effects bayesian inversion.
 
 Concrete types should implement
+- `get_inverted_system(::AbstractCrossInversionCase; scenario)` 
+- `get_mixed_keys(::AbstractCrossInversionCase; scenario)`
+- `get_indiv_ids(::AbstractCrossInversionCase; scenario)`
 - `get_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)`
   Priors for model parameters in fixed, random, and indiv effects. 
 - `get_priors_random_dict(::AbstractCrossInversionCase; scenario)`
@@ -79,91 +82,30 @@ function get_problemupdater(::AbstractCrossInversionCase;
     NullProblemUpdater()
 end
 
+"""
+    get_inverted_system(::AbstractCrossInversionCase; scenario)
+
+Provide a `NamedTuple` 
+`(;system::AbstractSystem, u0_default::ComponentVector, p_default::ComponentVector)`
+of the inverted system and default initial values and parameters 
+for given inversion scenario.
+"""
+function get_inverted_system end
+"""
+    get_mixed_keys(::AbstractCrossInversionCase; scenario)
+
+Provide NamedTuple `(;fixed, random, indiv)` of tuples of parameter names (Symbol) that
+are optimized in the inversion scenario.
+"""
+function get_mixed_keys end
 
 """
-    setup_tools_indiv(indiv_id;
-            inv_case::AbstractCrossInversionCase, scenario,
-            system,
-            sitedata = get_indivdata(inv_case, indiv_id; scenario),
-            tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
-            u0 = nothing,
-            p = nothing,
-            keys_indiv = NTuple{0, Symbol}(),
-            priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
-            u0_default = ComponentVector(),
-            p_default = ComponentVector(),
-            )
+    get_indiv_ids(::AbstractCrossInversionCase; scenario)
 
-Compiles the information and tools for individuals.
-Returns a `NamedTuple`: `(;priors_indiv, problem, sitedata)`.
+Provide Tuple of Symbols identifying the individuals.
 """
-function setup_tools_indiv(indiv_id;
-        inv_case::AbstractCrossInversionCase, scenario,
-        system,
-        sitedata = get_indivdata(inv_case, indiv_id; scenario),
-        tspan = (0, maximum(map(stream -> stream.t[end], sitedata))),
-        u0 = nothing,
-        p = nothing,
-        keys_indiv = NTuple{0, Symbol}(),
-        priors_dict = get_priors_dict(inv_case, indiv_id; scenario),
-        u0_default = ComponentVector(),
-        p_default = ComponentVector(),
-        )
-    #Main.@infiltrate_main
-    sys_num_dict = get_system_symbol_dict(system)
-    # default u0 and p from expected value of priors
-    u0_vars = unique(symbol_op.(unknowns(system)))
-    if isnothing(u0)
-        missing_vars = [v for v in u0_vars if v ∉ keys(priors_dict)]
-        priors_u0 = dict_to_cv(setdiff(u0_vars, missing_vars), priors_dict)
-        u0 = meandist2componentarray(priors_u0)
-    end
-    p_vars = unique(symbol_op.(parameters(system)))
-    if isnothing(p)
-        missing_vars = [v for v in p_vars if v ∉ keys(priors_dict)]
-        priors_p = dict_to_cv(setdiff(p_vars, missing_vars), priors_dict)
-        p = meandist2componentarray(priors_p)
-    end
-    u0p = ComponentVector(
-        state = ComponentVector(u0_default; u0...), # mreging to defaults
-        par = ComponentVector(p_default; p...))
-    problem = ODEProblem(system, system_num_dict(u0p.state, sys_num_dict), tspan,
-        system_num_dict(u0p.par, sys_num_dict))
-    #
-    priors_indiv = dict_to_cv(keys_indiv, priors_dict)
-    #
-    (;priors_indiv, problem, sitedata)
-end
+function get_indiv_ids end
 
-"""
-Put priors for fixed, random, and random_σ into a ComponentVector.
-The indiv priors can be indiv_id-specific, they are setup in `setup_tools_indiv`.     
-"""
-function setup_priors_pop(keys_fixed, keys_random;
-        inv_case::AbstractCrossInversionCase, scenario,
-        priors_dict = get_priors_dict(inv_case, missing; scenario),
-        priors_random_dict = get_priors_random_dict(inv_case; scenario))
-    (;
-        fixed = dict_to_cv(keys_fixed, priors_dict),
-        random = dict_to_cv(keys_random, priors_dict),
-        random_σ = dict_to_cv(keys_random, priors_random_dict)
-    )
-end
-
-"""
-Take a ComponentArray of possibly multivariate distributions
-and return a new ComponentArray of means of each distribution.
-"""
-meandist2componentarray = function (priors)
-    # need to first create several ComponentVectors and then reduce
-    # otherwise map on mixing Scalars and Vectors yields eltype any
-    @chain priors begin
-        map(keys(_)) do k
-            ComponentVector(NamedTuple{(k,)}(Ref(mean(_[k]))))
-        end
-        reduce(vcat, _)
-    end
-end
 
 """
     get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)

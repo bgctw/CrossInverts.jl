@@ -6,18 +6,22 @@ CurrentModule = CrossInverts
 
 ```@docs
 AbstractCrossInversionCase
+get_inverted_system
+get_mixed_keys
+get_indiv_ids
 get_priors_dict
 get_priors_random_dict
 get_obs_uncertainty_dist_type
 get_indivdata
 get_problemupdater
-df_from_paramsModeUpperRows
 ```
 
 # Setup tools 
 ```@docs
-get_indiv_parameters_from_priors
+setup_inversion
 setup_tools_mixed
+df_from_paramsModeUpperRows
+get_indiv_parameters_from_priors
 ```
 
 # Simulating
