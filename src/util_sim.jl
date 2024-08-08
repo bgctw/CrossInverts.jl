@@ -1,7 +1,9 @@
 """
-    sim_sols_probs(fixed, random, indiv, indiv_random)
+    gen_sim_sols_probs(; tools, psets, problemupdater, 
+        solver = AutoTsit5(Rodas5()), kwargs_gen...)
 
-Update and simulate system (given with tools to gen_sim_sols_probs) by 
+Generates a function `sim_sols_probs(fixed, random, indiv, indiv_random)`
+that update and simulate the system (given with tools to `gen_sim_sols_probs`) by 
 - for each individual i
   - update fixed parameters: fixed 
   - update random parameters: random .* indiv_random[:,i]
@@ -9,8 +11,8 @@ Update and simulate system (given with tools to gen_sim_sols_probs) by
   - simulate the problem
 - return a vector(n_indiv) of (;sol, problem_opt)
 
-If non-optimized p and u0 differ between individuals, they must already be
-set in tools[i_indiv].problem.
+If non-optimized `p` or `u0` differ between individuals, they must already be
+set in `tools[i_indiv].problem`.
 """
 function gen_sim_sols_probs(; tools, psets, problemupdater, solver = AutoTsit5(Rodas5()), kwargs_gen...)
     fLogger = EarlyFilteredLogger(current_logger()) do log

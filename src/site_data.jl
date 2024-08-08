@@ -2,7 +2,7 @@
 #     setup_scenario(indiv_id, targetlim, scenario, u0, p;
 #         system = get_plant_sesam_system(scenario),
 #         tspan = (0, 20000),
-#         sitedata = get_indivdata(indiv_id),    
+#         indivdata = get_indivdata(indiv_id),    
 #         )
 
 # Initialize the names of parameters to optimize, adjust initial state, 
@@ -60,6 +60,8 @@ Concrete types should implement
   Type of distribution of observation-uncertainty per stream.
 - `get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)`
   The times, observations, and uncertainty parameters per indiv_id and stream.
+optionally:
+- `get_u0p(::AbstractCrossInversionCase; scenario)`  
 - `get_problemupdater(::AbstractCrossInversionCase; system, scenario)`
   A ProblemUpdater for ensuring consistent parameters after setting optimized 
   parameters.
@@ -80,6 +82,21 @@ The default is a `NullProblemUpdater`, which does not modify parameters.
 function get_problemupdater(::AbstractCrossInversionCase; 
     system, scenario = NTuple{0, Symbol}())
     NullProblemUpdater()
+end
+
+"""
+    get_u0p(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+
+Return initial values and parameters to set in Problem of each individual.
+If the Data.Frame holds a row for a specific indiv_id, the provided values 
+override the initial estimate from the priors. 
+This can be used to start optimization from a given state.
+
+The default has no information:
+`DataFrame(indiv_id = Symbol[], u0 = ComponentVector[], p = ComponentVector[])`.
+"""
+function get_u0p(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+    DataFrame(indiv_id = Symbol[], u0 = ComponentVector[], p = ComponentVector[])
 end
 
 """
@@ -149,16 +166,16 @@ function get_priors_random_dict end
 """
     df_from_paramsModeUpperRows(paramsModeUpperRows)
 
-Convert Tuple-Rows of (:par, :dType, :med, :upper) to DataFrame.
-And Fit distribution.
+Convert Tuple-Rows of `(:par, :dType, :mode, :upper)` to `DataFrame`.
+And fit distribution and report it in column `:dist`.
 """
 function df_from_paramsModeUpperRows(paramsModeUpperRows)
-    cols = (:par, :dType, :med, :upper)
+    cols = (:par, :dType, :mode, :upper)
     df_dist = rename!(DataFrame(Tables.columntable(paramsModeUpperRows)), collect(cols))
-    f1v = (par, dType, med, upper) -> begin
-        dist = dist0 = fit(dType, @qp_m(med), @qp_uu(upper))
+    f1v = (par, dType, mode, upper) -> begin
+        dist = dist0 = fit(dType, mode, @qp_uu(upper), Val(:mode))
     end
-    DataFrames.transform!(df_dist, Cols(:par, :dType, :med, :upper) => ByRow(f1v) => :dist)
+    DataFrames.transform!(df_dist, Cols(:par, :dType, :mode, :upper) => ByRow(f1v) => :dist)
     df_dist
 end
 
@@ -181,9 +198,9 @@ end
 # """
 #     extract_stream_obsmatrices(;tools, vars=(:obs,))
 
-# Extract matrices by stream from sitedata in tools.
+# Extract matrices by stream from indivdata in tools.
 
-# For each indiv_id, tools holds the observations of all streams in property sitedata.
+# For each indiv_id, tools holds the observations of all streams in property indivdata.
 # This function returns a ComponentVector for each stream.
 # For each stream it reports subvections t, and matrix for vars where each column
 # relates to one indiv_id.
@@ -191,7 +208,7 @@ end
 # length as the time column.
 # """
 # function extract_stream_obsmatrices(; tools, vars = (:obs,))
-#     obs = map(t -> t.sitedata, tools)
+#     obs = map(t -> t.indivdata, tools)
 #     stream_names = keys(first(obs))
 #     tup = map(stream_names) do sk
 #         #sk = stream_names[1]
@@ -215,84 +232,3 @@ end
 # end
 
 
-
-"""
-    get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase,
-            indiv_ids, mixed_keys;
-            scenario, system,
-            rng = StableRNG(234),
-            priors_dict = get_priors_dict(inv_case, missing; scenario),
-            priors_random_dict = get_priors_random_dict(inv_case; scenario),
-            u0_default = ComponentVector(),
-            p_default = ComponentVector(),
-            )
-
-Construct a DataFrame with parameters across sites with 
-- fixed parameters corresponding to the mean of its prior
-- random parameters corresponding to mean modified, i.e. multiplied, by sampled 
-  random effects and its meta parameters
-- individual parameters 
-
-## Value
-DataFrame with columns `indiv_id`, `u0` and `p`, with all states and parameters of the
-given system as `ComponentVector` labelled by `get_state_labeled` and `get_par_labeled`.
-
-"""
-function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
-        indiv_ids, mixed_keys,
-        scenario = NTuple{0, Symbol}(),
-        system,
-        rng = StableRNG(234),
-        priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario),
-        priors_random_dict = get_priors_random_dict(inv_case; scenario),
-        u0_default = ComponentVector(),
-        p_default = ComponentVector(),
-        )
-    priors_random = dict_to_cv(mixed_keys.random, priors_random_dict)
-    # priors_dict may differ across indiv -> mixed.random and mixed.popt differ
-    mixed_indiv = (;
-        zip(indiv_ids,
-            mean_priors(; mixed_keys, priors_dict, system)
-            for
-            priors_dict in values(priors_dict_indiv))...)
-    map(kc -> check_equal_across_indiv(kc, mixed_indiv), (:fixed, :random))
-    psets = setup_psets_mixed(mixed_keys; system, popt = first(mixed_indiv).popt)
-    popt_indiv = [label_paropt(psets.popt, mixed.popt) for mixed in mixed_indiv]
-    # need to construct problem to properly account for default values
-    sdict = get_system_symbol_dict(system)
-    problem_indiv = map(popt_indiv) do popt
-        u0_numdict = system_num_dict(ComponentVector(u0_default; popt.state...), sdict)        
-        p_numdict = system_num_dict(ComponentVector(p_default; popt.par...), sdict)
-        ODEProblem(system, u0_numdict, (0.0, 2.0), p_numdict)
-    end
-    # setup DataFrame and modify u0,p on non-first-row afterwards
-    df = DataFrame(indiv_id = collect(indiv_ids), problem = problem_indiv)
-    _resample_random = (problem) -> begin
-        random = get_paropt_labeled(psets.random, problem)
-        r = random .* sample_ranef(rng, priors_random)
-        probo = remake(problem, r, psets.random)
-        (get_state_labeled(psets.popt, probo), get_par_labeled(psets.popt, probo))
-    end
-    DataFrames.transform!(df,
-        [:problem] => DataFrames.ByRow(_resample_random) => [:u0, :p])
-    # in the first row 
-    prob1 = df.problem[1]
-    # for the first row remove the random effects and stick to the mean
-    df[1, [:u0, :p]] .= (get_state_labeled(psets.popt, prob1),
-        get_par_labeled(psets.popt, prob1))
-    df[:, Not(:problem)]
-end
-
-function check_equal_across_indiv(kc, mixed_indiv)
-    tmp = ComponentMatrix(hcat((c[kc] for c in mixed_indiv)...),
-        first(getaxes(mixed_indiv[1][kc])), FlatAxis())
-    rows_cols_equal = map(x -> all(x .== first(x)), eachrow(tmp))
-    all(rows_cols_equal) && return ()
-    @warn("Expected $kc effects priors to be equal across individuals, "*
-    "but means differed in rows $(findall(rows_cols_equal)): $(tmp)")
-end
-
-function get_priors_dict_indiv(inv_case, indiv_ids; scenario)
-    Dict(id => get_priors_dict(inv_case, id; scenario) for
-    id in indiv_ids)
-end

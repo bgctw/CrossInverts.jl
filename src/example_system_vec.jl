@@ -24,9 +24,9 @@ end
 function get_inverted_system(::SampleSystemVecCase; scenario)
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
-    u0_default = ComponentVector() 
+    u0_default = ComponentVector()
     p_default = ComponentVector(sv₊i2 = 0.1)
-    (;system, u0_default, p_default)
+    (; system, u0_default, p_default)
 end
 
 get_indiv_ids(::SampleSystemVecCase; scenario) = (:A, :B, :C)
@@ -47,9 +47,15 @@ function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, S
         (:sv₊x_1, LogNormal, 1.0, 2.0),
         (:sv₊x_2, LogNormal, 1.0, 2.0)
     ]
+    if :test_indiv_priors ∈ scenario
+        # test setting a different indiv prior for site B
+        if indiv_id == :B
+            paramsModeUpperRows[1] = (:sv₊i, LogNormal, 2.0, 6.0)
+        end
+    end
     df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
     dd = Dict{Symbol, Distribution}(df_scalars.par .=> df_scalars.dist)
-    dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
+    dist_p0 = fit(LogNormal, 1.0, @qp_uu(3.0), Val(:mode))
     # dd[:sv₊p] = product_distribution(fill(dist_p0, 3))
     # dd[:sv₊x] = product_distribution(dd[:sv₊x_1], dd[:sv₊x_2])
     dd[:sv₊p] = product_MvLogNormal(fill(dist_p0, 3)...)
@@ -86,30 +92,26 @@ end
 
 gen_site_data_vec = () -> begin
     # using and setup in test_util_mixed
-    @named sv = CP.samplesystem_vec()
-    @named system = embed_system(sv)
     inv_case = SampleSystemVecCase()
     scenario = NTuple{0, Symbol}()
-    mixed_keys = (;
-        fixed = (:sv₊p,),
-        random = (:sv₊x, :sv₊τ),
-        indiv = (:sv₊i,))
-    indiv_ids = (:A, :B, :C)
-    #p_indiv = CP.get_indiv_parameters(inv_case)
-    p_indiv = get_indiv_parameters_from_priors(inv_case; indiv_ids, mixed_keys,
-        scenario, system)
+    system_u0_p_default=get_inverted_system(inv_case; scenario)
+    system = system_u0_p_default.system
+    p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, system_u0_p_default)
+    # p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
+    #     system_u0_p_default = (; system,
+    #         u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
     #using DistributionFits, StableRNGs, Statistics
     # other usings from test_util_mixed
     _dict_nums = get_system_symbol_dict(system)
-    # setup a problem, numbers do not matter, because set below from prior mean
+    # setup a problem, numbers do not matter, because set below from p_indiv
     t = [0.2, 0.4, 1.0, 2.0]
     u0_A, p_A = (p_indiv.u0[1], p_indiv.p[1])
-    p_new = Dict(sv.i .=> p_A.sv₊i)
+    p_new = Dict(system.sv.i .=> p_A.sv₊i, system.sv.i2 => p_A.sv₊i)
     problem = ODEProblem(system, u0_A, (0.0, 2.0), p_new)
     #indiv_id = first(keys(p_indiv))
     streams = (:sv₊x, :sv₊dec2)
     dtypes = Dict(s => get_obs_uncertainty_dist_type(inv_case, s; scenario)
-    for s in streams)
+        for s in streams)
     unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => convert(Matrix, PDiagMat(log.([1.1, 1.1]))))
     d_noise = Dict(s => begin
                        unc = unc_par[s]
@@ -259,4 +261,43 @@ function get_problemupdater(::SampleSystemVecCase; system, scenario = NTuple{0, 
     mapping = (:sv₊i => :sv₊i2,)
     pset = ODEProblemParSetter(system, Symbol[]) # parsetter to get state symbols
     get_ode_problemupdater(KeysProblemParGetter(mapping, keys(axis_state(pset))), system)
+end
+
+function get_u0p(::SampleSystemVecCase; scenario)
+    # creating the csv string:
+    # io = IOBuffer()
+    # CSV.write(io, indiv_info[:, 1:3])
+    # s = String(take!(io))
+    # print(s)
+    csv = """
+indiv_id,u0,p
+A,"(sv₊x = [2.0383292042153554, 2.0383292042153554])","(sv₊τ = 1.4009482259635606, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
+B,"(sv₊x = [2.106525817516089, 2.038672471649886])","(sv₊τ = 1.4752043120005407, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
+C,"(sv₊x = [2.010654503237803, 2.0510192980037196])","(sv₊τ = 1.4034321912259409, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
+"""
+    df = CSV.read(IOBuffer(csv), DataFrame)
+    DataFrames.transform!(df,
+        :indiv_id => ByRow(Symbol) => :indiv_id,
+        :u0 => ByRow(parse_nested_tuple) => :u0,
+        :p => ByRow(parse_nested_tuple) => :p)
+    df.u0[1][:sv₊x] .= [2.0, 2.0]
+    df.p[1][:sv₊τ] = 1.5
+    # testing some information missing in default, needed from prior
+    keys_p_noi = setdiff(keys(df.p[1]), (:sv₊i,))
+    DataFrames.transform(df,
+        :p => ByRow(cv -> cv[keys_p_noi]) => :p)
+    # testing no information for whole individuals
+    subset!(df, :indiv_id => ByRow(≠(:C)))
+    df
+end
+function parse_nested_tuple(s)
+    # insert a comma before each closing bracket if comma is not there yet
+    # otherwise a single netry its not recognized as NamedTuple but as bracketed assingment
+    # negative lookbehind https://stackoverflow.com/a/9306228    
+    s1 = replace(s, r"(?<!,)\)" => ",)")
+    # TODO: replace by something less dangerous but more flexible than JLD
+    # such as storing numeric vectors - but then how to store the axes?
+    #    name [length?]
+    t = eval(Meta.parse(s1)) # NamedTuple
+    ComponentVector(t)
 end

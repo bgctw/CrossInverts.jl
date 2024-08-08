@@ -18,6 +18,7 @@ scenario = NTuple{0, Symbol}()
 tmpf = () -> begin
     @named sv = CP.samplesystem_vec()
     @named system = embed_system(sv)
+    #(;system, u0_default, p_default) = get_inverted_system(inv_case; scenario)
 
     mixed_keys = (;
         fixed = (:sv₊p,),
@@ -28,10 +29,9 @@ tmpf = () -> begin
 
     #p_indiv = CP.get_indiv_parameters(inv_case)
     #priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)    
-    p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
-        system, 
-        p_default = CA.ComponentVector(sv₊i2 = 0.1)
-        )
+    p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
+        system_u0_p_default = (; system,
+            u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
 
     # get the sizes of ComponentVectors from prior means
     # actual values are overridden below from site, after psets.opt is available
@@ -39,8 +39,31 @@ tmpf = () -> begin
         inv_case, scenario, system, mixed_keys)
 end
 
+@testset "setup_indiv_problems" begin
+    tspans = fill((0.0, 0.0), 3)
+    _problems = CP.setup_indiv_problems(; inv_case, scenario, tspans)
+    pset = ODEProblemParSetter(get_system(first(_problems)), Symbol[])
+    p = get_par_labeled(pset, _problems[1])
+    @test p[:sv₊τ] == 1.5     # from get_u0p
+    @test isfinite(p[:sv₊i])  # from get_priors
+    @test p[:sv₊i2] == 0.1    # from get_inverted_system
+    u = get_state_labeled(pset, _problems[1])
+    @test u[:sv₊x] == [2.0, 2.0] # grom getu0p
+    p3 = get_par_labeled(pset, _problems[3]) # no information in u0p 
+    @test all(isfinite.(p3))
+    @test keys(p3) == keys(p)
+    u3 = get_state_labeled(pset, _problems[3])
+    @test all(isfinite.(u3))
+end;
 
-(;system, indiv_info, pop_info) = setup_inversion(inv_case; scenario)
+tmpf = () -> begin
+    system_u0_p_default = get_inverted_system(inv_case; scenario)
+    (; system, u0_default, p_default) = system_u0_p_default
+    (; system, pop_info, indiv_info) = setup_inversion(
+        inv_case; scenario, system_u0_p_default)
+end
+
+(; system, indiv_info, pop_info) = setup_inversion(inv_case; scenario)
 
 (; fixed, random, indiv, indiv_random) = pop_info.mixed
 (; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
@@ -58,18 +81,18 @@ end;
         mixed_keys,
         priors_dict = first(values(priors_dict_indiv)),
         system)
-    psets = setup_psets_mixed(mixed_keys; system, mean_priors_mixed.popt)
+    psets = setup_psets_mixed(mixed_keys; system)
     @test all((:fixed, :random, :indiv, :popt) .∈ Ref(keys(psets)))
     (_fixed, _random, _indiv1, _popt) = mean_priors_mixed
     @test psets.fixed isa ODEProblemParSetter
     _tools = setup_tools_indiv(:A; inv_case, scenario, system,
         keys_indiv = mixed_keys.indiv,
-        u0 = _popt[filter(∈(keys_state(psets.fixed)), keys(_popt))], 
+        u0 = _popt[filter(∈(keys_state(psets.fixed)), keys(_popt))],
         p = _popt[filter(∈(keys_par(psets.fixed)), keys(_popt))],
         p_default = CA.ComponentVector(sv₊i2 = 0.1)
-        )
-    @test flatten1(get_paropt_labeled(psets.fixed, _tools.problem)) == 
-        _popt[keys_paropt(psets.fixed)]
+    )
+    @test flatten1(get_paropt_labeled(psets.fixed, _tools.problem)) ==
+          _popt[keys_paropt(psets.fixed)]
     @test flatten1(get_paropt_labeled(psets.fixed, _tools.problem)) == _fixed
     @test flatten1(get_paropt_labeled(psets.random, _tools.problem)) == _random
     @test flatten1(get_paropt_labeled(psets.indiv, _tools.problem)) == _indiv1
@@ -78,7 +101,7 @@ end;
 
 solver = AutoTsit5(Rodas5P())
 sim_sols_probs = gen_sim_sols_probs(;
-    tools = indiv_info.tools, psets = pop_info.psets, 
+    tools = indiv_info.tools, psets = pop_info.psets,
     problemupdater = pop_info.problemupdater, solver)
 
 @testset "simsols" begin
@@ -91,8 +114,8 @@ sim_sols_probs = gen_sim_sols_probs(;
     @test popt2[mixed_keys.indiv] == indiv[:, 1]
     @test popt2[keys(fixed)] == fixed
     # recomputed sites ranef and set indiv, but used mean fixed parameters
-    @test popt2[keys(random)] == indiv_info.paropt[1][keys(random)]
-    @test popt2[mixed_keys.indiv] == indiv_info.paropt[1][mixed_keys.indiv]
+    @test popt2[keys(random)] == flatten1(indiv_info.paropt[1])[keys(random)]
+    @test popt2[mixed_keys.indiv] == flatten1(indiv_info.paropt[1])[mixed_keys.indiv]
     sol = first(sols_probs).sol
     sv = system.sv
     @test all(sol[sv.x][1] .== indiv_info.u0[1]) # here all state random effects
@@ -101,13 +124,13 @@ sim_sols_probs = gen_sim_sols_probs(;
     @test all(sol([0.3, 0.35]; idxs = sv.dec2).u .> 0) # observed at a interpolated times
     solA0 = solve(indiv_info.tools[1].problem, solver)
     # check that Problemupdater also pdated i2 to optimized i
-    @test get_par_labeled(psets.fixed, problem_opt)[:sv₊i2] == 
-        get_par_labeled(psets.fixed, problem_opt)[:sv₊i]
-    @test get_par_labeled(psets.fixed, problem_opt)[:sv₊i2] ≠ 
-        get_par_labeled(psets.fixed, indiv_info.tools[1].problem)[:sv₊i2]  
+    @test get_par_labeled(psets.fixed, problem_opt)[:sv₊i2] ==
+          get_par_labeled(psets.fixed, problem_opt)[:sv₊i]
+    @test get_par_labeled(psets.fixed, problem_opt)[:sv₊i2] ≠
+          get_par_labeled(psets.fixed, indiv_info.tools[1].problem)[:sv₊i2]
     #
-    sim_sols = gen_sim_sols(; 
-        tools = indiv_info.tools, psets = pop_info.psets, 
+    sim_sols = gen_sim_sols(;
+        tools = indiv_info.tools, psets = pop_info.psets,
         problemupdater = pop_info.problemupdater, solver, maxiters = 1e4)
     poptl = (; fixed, random, indiv, indiv_random)
     sols = sim_sols(poptl)
@@ -157,7 +180,6 @@ end
     @test names(chn2) == [Symbol("indiv_random[:sv₊x, 2][1]"),
         Symbol("indiv_random[:sv₊x, 2][2]"), Symbol("indiv_random[:sv₊τ, 2]")]
 end;
-
 
 tmpf = () -> begin
     #experiment with accessing subgroups

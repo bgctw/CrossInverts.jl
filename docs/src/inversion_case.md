@@ -19,9 +19,7 @@ get_problemupdater
 # Setup tools 
 ```@docs
 setup_inversion
-setup_tools_mixed
 df_from_paramsModeUpperRows
-get_indiv_parameters_from_priors
 ```
 
 # Simulating
