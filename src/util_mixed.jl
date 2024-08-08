@@ -195,7 +195,7 @@ function setup_indiv_problems(;
     priors_dicts=get_priors_dict_indiv(inv_case, indiv_ids; scenario),
 )
     (; system, u0_default, p_default) = system_u0_p_default
-    # complete the u0p specifcation by adding empty ComponentVectors for missing indivs
+    # complete the u0p specification by adding empty ComponentVectors for missing indivs
     df_spec = subset(indiv_u0p, :indiv_id => ByRow(∈(indiv_ids)))
     df = leftjoin(DataFrame(indiv_id=collect(indiv_ids)), df_spec, on=:indiv_id)
     DataFrames.transform!(

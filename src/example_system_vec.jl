@@ -292,7 +292,7 @@ C,"(sv₊x = [2.010654503237803, 2.0510192980037196])","(sv₊τ = 1.40343219122
 end
 function parse_nested_tuple(s)
     # insert a comma before each closing bracket if comma is not there yet
-    # otherwise a single netry its not recognized as NamedTuple but as bracketed assingment
+    # otherwise a single netry its not recognized as NamedTuple but as bracketed assignment
     # negative lookbehind https://stackoverflow.com/a/9306228    
     s1 = replace(s, r"(?<!,)\)" => ",)")
     # TODO: replace by something less dangerous but more flexible than JLD
