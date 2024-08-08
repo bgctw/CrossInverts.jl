@@ -18,12 +18,12 @@ using PDMats: PDiagMat
 
 
 export AbstractCrossInversionCase
-export get_inverted_system
-export get_mixed_keys, get_indiv_ids
-export get_priors_dict, get_priors_random_dict, get_obs_uncertainty_dist_type, get_indivdata
-export get_problemupdater
-export get_obs_uncertainty_dist_type
-export get_u0p
+export get_case_inverted_system
+export get_case_mixed_keys, get_case_indiv_ids
+export get_case_priors_dict, get_case_riors_random_dict, get_case_obs_uncertainty_dist_type, get_case_indivdata
+export get_case_problemupdater
+export get_case_obs_uncertainty_dist_type
+export get_case_u0p
 export df_from_paramsModeUpperRows
 include("site_data.jl")
 

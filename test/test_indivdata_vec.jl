@@ -12,8 +12,8 @@ using Distributions
 inv_case = SampleSystemVecCase()
 scenario = NTuple{0, Symbol}()
 
-@testset "get_indivdata" begin
-    res = get_indivdata(inv_case, :A;
+@testset "get_case_indivdata" begin
+    res = get_case_indivdata(inv_case, :A;
         scenario = CA.ComponentVector())
     # keys for different data streams
     @test all((:sv₊x, :sv₊dec2) .∈ Ref(keys(res)))
@@ -22,8 +22,8 @@ scenario = NTuple{0, Symbol}()
     @test length(res.:sv₊x.t) == length(res.:sv₊x.obs) == length(res.:sv₊x.obs_true)
 end;
 
-@testset "get_priors_dict and dict_to_cv" begin
-    priors_dict = get_priors_dict(inv_case, :A; scenario)
+@testset "get_case_priors_dict and dict_to_cv" begin
+    priors_dict = get_case_priors_dict(inv_case, :A; scenario)
     @test all((:sv₊x, :sv₊p, :sv₊τ, :sv₊i) .∈ Ref(keys(priors_dict)))
     @test eltype(values(priors_dict)) <: Distribution
     #
@@ -37,13 +37,13 @@ end;
     @test keys(priors) == reverse(keys(popt.par))
 end;
 
-@testset "get_priors_dict different for indiv" begin
-    priors_dict_A = get_priors_dict(inv_case, :A; scenario)
-    priors_dict_B = get_priors_dict(inv_case, :B; scenario)
+@testset "get_case_priors_dict different for indiv" begin
+    priors_dict_A = get_case_priors_dict(inv_case, :A; scenario)
+    priors_dict_B = get_case_priors_dict(inv_case, :B; scenario)
     @test priors_dict_B == priors_dict_A
     scenario2 = (scenario..., :test_indiv_priors)
-    priors_dict_A2 = get_priors_dict(inv_case, :A; scenario = scenario2)
-    priors_dict_B2 = get_priors_dict(inv_case, :B; scenario = scenario2)
+    priors_dict_A2 = get_case_priors_dict(inv_case, :A; scenario = scenario2)
+    priors_dict_B2 = get_case_priors_dict(inv_case, :B; scenario = scenario2)
     @test priors_dict_B2[:sv₊i] != priors_dict_A2[:sv₊i]
     @test mode(priors_dict_A2[:sv₊i]) ≈ 1.0
     @test mode(priors_dict_B2[:sv₊i]) ≈ 2.0

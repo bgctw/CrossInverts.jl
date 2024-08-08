@@ -6,14 +6,14 @@ CurrentModule = CrossInverts
 
 ```@docs
 AbstractCrossInversionCase
-get_inverted_system
-get_mixed_keys
-get_indiv_ids
-get_priors_dict
-get_priors_random_dict
-get_obs_uncertainty_dist_type
-get_indivdata
-get_problemupdater
+get_case_inverted_system
+get_case_mixed_keys
+get_case_indiv_ids
+get_case_priors_dict
+get_case_riors_random_dict
+get_case_obs_uncertainty_dist_type
+get_case_indivdata
+get_case_problemupdater
 ```
 
 # Setup tools 

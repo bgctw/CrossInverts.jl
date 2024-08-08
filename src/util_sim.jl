@@ -100,7 +100,7 @@ end
 
 function sample_random(inv_case::AbstractCrossInversionCase, random; scenario,
         rng::AbstractRNG = Random.default_rng())
-    priors_random_dict = get_priors_random_dict(inv_case; scenario)
+    priors_random_dict = get_case_riors_random_dict(inv_case; scenario)
     priors_random = dict_to_cv(keys(random), priors_random_dict)
     random .* sample_ranef(rng, priors_random)
 end

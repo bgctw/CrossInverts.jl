@@ -21,7 +21,7 @@ function samplesystem_vec(; name, τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
     return sys
 end
 
-function get_inverted_system(::SampleSystemVecCase; scenario)
+function get_case_inverted_system(::SampleSystemVecCase; scenario)
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
     u0_default = ComponentVector()
@@ -29,16 +29,16 @@ function get_inverted_system(::SampleSystemVecCase; scenario)
     (; system, u0_default, p_default)
 end
 
-get_indiv_ids(::SampleSystemVecCase; scenario) = (:A, :B, :C)
+get_case_indiv_ids(::SampleSystemVecCase; scenario) = (:A, :B, :C)
 
-function get_mixed_keys(::AbstractCrossInversionCase; scenario)
+function get_case_mixed_keys(::AbstractCrossInversionCase; scenario)
     (;
         fixed = (:sv₊p,),
         random = (:sv₊x, :sv₊τ),
         indiv = (:sv₊i,))
 end
 
-function get_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
+function get_case_priors_dict(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -70,7 +70,7 @@ function product_MvLogNormal(comp...)
     MvLogNormal(μ, Σ)
 end
 
-function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
+function get_case_riors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symbol}())
     #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
     # prior in σ rather than σstar
     d_exp = Exponential(log(1.05))
@@ -83,7 +83,7 @@ function get_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0, Symb
     dd
 end
 
-function get_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
+function get_case_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
         scenario = NTuple{0, Symbol}())
     dtypes = Dict{Symbol, Type}(:sv₊dec2 => LogNormal,
         :sv₊x => MvLogNormal)
@@ -94,7 +94,7 @@ gen_site_data_vec = () -> begin
     # using and setup in test_util_mixed
     inv_case = SampleSystemVecCase()
     scenario = NTuple{0, Symbol}()
-    system_u0_p_default=get_inverted_system(inv_case; scenario)
+    system_u0_p_default=get_case_inverted_system(inv_case; scenario)
     system = system_u0_p_default.system
     p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, system_u0_p_default)
     # p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
@@ -110,7 +110,7 @@ gen_site_data_vec = () -> begin
     problem = ODEProblem(system, u0_A, (0.0, 2.0), p_new)
     #indiv_id = first(keys(p_indiv))
     streams = (:sv₊x, :sv₊dec2)
-    dtypes = Dict(s => get_obs_uncertainty_dist_type(inv_case, s; scenario)
+    dtypes = Dict(s => get_case_obs_uncertainty_dist_type(inv_case, s; scenario)
         for s in streams)
     unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => convert(Matrix, PDiagMat(log.([1.1, 1.1]))))
     d_noise = Dict(s => begin
@@ -147,10 +147,10 @@ gen_site_data_vec = () -> begin
     end
     res = (; zip(p_indiv.indiv_id, obs_tuple)...)
     #clipboard(res) # not on slurm
-    res  # copy from terminal and paste into get_indivdata
+    res  # copy from terminal and paste into get_case_indivdata
 end
 
-function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
+function get_case_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     data = (
         A = (
             sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
@@ -257,13 +257,13 @@ function get_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Sym
     data[indiv_id]
 end
 
-function get_problemupdater(::SampleSystemVecCase; system, scenario = NTuple{0, Symbol}())
+function get_case_problemupdater(::SampleSystemVecCase; system, scenario = NTuple{0, Symbol}())
     mapping = (:sv₊i => :sv₊i2,)
     pset = ODEProblemParSetter(system, Symbol[]) # parsetter to get state symbols
     get_ode_problemupdater(KeysProblemParGetter(mapping, keys(axis_state(pset))), system)
 end
 
-function get_u0p(::SampleSystemVecCase; scenario)
+function get_case_u0p(::SampleSystemVecCase; scenario)
     # creating the csv string:
     # io = IOBuffer()
     # CSV.write(io, indiv_info[:, 1:3])

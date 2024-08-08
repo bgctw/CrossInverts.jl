@@ -18,7 +18,7 @@ scenario = NTuple{0, Symbol}()
 tmpf = () -> begin
     @named sv = CP.samplesystem_vec()
     @named system = embed_system(sv)
-    #(;system, u0_default, p_default) = get_inverted_system(inv_case; scenario)
+    #(;system, u0_default, p_default) = get_case_inverted_system(inv_case; scenario)
 
     mixed_keys = (;
         fixed = (:sv₊p,),
@@ -44,9 +44,9 @@ end
     _problems = CP.setup_indiv_problems(; inv_case, scenario, tspans)
     pset = ODEProblemParSetter(get_system(first(_problems)), Symbol[])
     p = get_par_labeled(pset, _problems[1])
-    @test p[:sv₊τ] == 1.5     # from get_u0p
+    @test p[:sv₊τ] == 1.5     # from get_case_u0p
     @test isfinite(p[:sv₊i])  # from get_priors
-    @test p[:sv₊i2] == 0.1    # from get_inverted_system
+    @test p[:sv₊i2] == 0.1    # from get_case_inverted_system
     u = get_state_labeled(pset, _problems[1])
     @test u[:sv₊x] == [2.0, 2.0] # grom getu0p
     p3 = get_par_labeled(pset, _problems[3]) # no information in u0p 
@@ -57,7 +57,7 @@ end
 end;
 
 tmpf = () -> begin
-    system_u0_p_default = get_inverted_system(inv_case; scenario)
+    system_u0_p_default = get_case_inverted_system(inv_case; scenario)
     (; system, u0_default, p_default) = system_u0_p_default
     (; system, pop_info, indiv_info) = setup_inversion(
         inv_case; scenario, system_u0_p_default)

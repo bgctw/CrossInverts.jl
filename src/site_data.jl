@@ -2,7 +2,7 @@
 #     setup_scenario(indiv_id, targetlim, scenario, u0, p;
 #         system = get_plant_sesam_system(scenario),
 #         tspan = (0, 20000),
-#         indivdata = get_indivdata(indiv_id),    
+#         indivdata = get_case_indivdata(indiv_id),    
 #         )
 
 # Initialize the names of parameters to optimize, adjust initial state, 
@@ -49,27 +49,27 @@ Interface for providing all relevant information for a cross-individual
 mixed effects bayesian inversion.
 
 Concrete types should implement
-- `get_inverted_system(::AbstractCrossInversionCase; scenario)` 
-- `get_mixed_keys(::AbstractCrossInversionCase; scenario)`
-- `get_indiv_ids(::AbstractCrossInversionCase; scenario)`
-- `get_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)`
+- `get_case_inverted_system(::AbstractCrossInversionCase; scenario)` 
+- `get_case_mixed_keys(::AbstractCrossInversionCase; scenario)`
+- `get_case_indiv_ids(::AbstractCrossInversionCase; scenario)`
+- `get_case_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)`
   Priors for model parameters in fixed, random, and indiv effects. 
-- `get_priors_random_dict(::AbstractCrossInversionCase; scenario)`
+- `get_case_riors_random_dict(::AbstractCrossInversionCase; scenario)`
   Priors for meta-parameters for random effects.
-- `get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)`
+- `get_case_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)`
   Type of distribution of observation-uncertainty per stream.
-- `get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)`
+- `get_case_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)`
   The times, observations, and uncertainty parameters per indiv_id and stream.
 optionally:
-- `get_u0p(::AbstractCrossInversionCase; scenario)`  
-- `get_problemupdater(::AbstractCrossInversionCase; system, scenario)`
+- `get_case_u0p(::AbstractCrossInversionCase; scenario)`  
+- `get_case_problemupdater(::AbstractCrossInversionCase; system, scenario)`
   A ProblemUpdater for ensuring consistent parameters after setting optimized 
   parameters.
 """
 abstract type AbstractCrossInversionCase end
 
 """
-    get_problemupdater(::AbstractCrossInversionCase; scenario)
+    get_case_problemupdater(::AbstractCrossInversionCase; scenario)
 
 Return a specific `ProblemUpdater` for given Inversioncase and scennario.
 It is applied after parameters to optimized have been set. The typical
@@ -79,13 +79,13 @@ another parameter.
 
 The default is a `NullProblemUpdater`, which does not modify parameters.    
 """
-function get_problemupdater(::AbstractCrossInversionCase; 
+function get_case_problemupdater(::AbstractCrossInversionCase; 
     system, scenario = NTuple{0, Symbol}())
     NullProblemUpdater()
 end
 
 """
-    get_u0p(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+    get_case_u0p(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
 
 Return initial values and parameters to set in Problem of each individual.
 If the Data.Frame holds a row for a specific indiv_id, the provided values 
@@ -95,46 +95,46 @@ This can be used to start optimization from a given state.
 The default has no information:
 `DataFrame(indiv_id = Symbol[], u0 = ComponentVector[], p = ComponentVector[])`.
 """
-function get_u0p(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
+function get_case_u0p(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
     DataFrame(indiv_id = Symbol[], u0 = ComponentVector[], p = ComponentVector[])
 end
 
 """
-    get_inverted_system(::AbstractCrossInversionCase; scenario)
+    get_case_inverted_system(::AbstractCrossInversionCase; scenario)
 
 Provide a `NamedTuple` 
 `(;system::AbstractSystem, u0_default::ComponentVector, p_default::ComponentVector)`
 of the inverted system and default initial values and parameters 
 for given inversion scenario.
 """
-function get_inverted_system end
+function get_case_inverted_system end
 """
-    get_mixed_keys(::AbstractCrossInversionCase; scenario)
+    get_case_mixed_keys(::AbstractCrossInversionCase; scenario)
 
 Provide NamedTuple `(;fixed, random, indiv)` of tuples of parameter names (Symbol) that
 are optimized in the inversion scenario.
 """
-function get_mixed_keys end
+function get_case_mixed_keys end
 
 """
-    get_indiv_ids(::AbstractCrossInversionCase; scenario)
+    get_case_indiv_ids(::AbstractCrossInversionCase; scenario)
 
 Provide Tuple of Symbols identifying the individuals.
 """
-function get_indiv_ids end
+function get_case_indiv_ids end
 
 
 """
-    get_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)
+    get_case_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)
 
 Provide the type of distribution of observation uncertainty for given stream,
 to be used with `fit_mean_Σ`.
 """
-function get_obs_uncertainty_dist_type end
+function get_case_obs_uncertainty_dist_type end
 
 
 """
-    get_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)
+    get_case_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)
 
 Provide Tuple `(indiv_id -> (stream_info)` for each indiv_id.
 Where StreamInfo is a Tuple `(streamsymbol -> (;t, obs, obs_true))`.
@@ -146,22 +146,22 @@ generated from the system, which are not used in inversion, but used for compari
 The ValueType dispatches to different implementations. There is 
 am implementation for `Val(:CrossInverts_samplesystem1)` independent of scenario.
 """
-function get_indivdata end
+function get_case_indivdata end
 
 """
-    get_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)
+    get_case_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)
 
 Provide a dictionary (par -> Distribution) for prior parameters and unknowns.
 """
-function get_priors_dict end
+function get_case_priors_dict end
 
 
 """
-    get_priors_random_dict(::AbstractCrossInversionCase; scenario)
+    get_case_riors_random_dict(::AbstractCrossInversionCase; scenario)
 
 Provide a dictionary (par -> Distribution) for prior parameters and unknowns.
 """
-function get_priors_random_dict end
+function get_case_riors_random_dict end
 
 """
     df_from_paramsModeUpperRows(paramsModeUpperRows)

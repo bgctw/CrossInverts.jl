@@ -18,7 +18,7 @@ module `CrossInverts` rather define the methods in module `Main`.
 
 ### Example system
 
-First lets setup the system to be inverted, using function [`get_inverted_system`](@ref).
+First lets setup the system to be inverted, using function [`get_case_inverted_system`](@ref).
 
 ```@example doc
 using ModelingToolkit, OrdinaryDiffEq 
@@ -47,7 +47,7 @@ end
 
 struct DocuVecCase <: AbstractCrossInversionCase end
 
-function CrossInverts.get_inverted_system(::DocuVecCase; scenario)
+function CrossInverts.get_case_inverted_system(::DocuVecCase; scenario)
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
     u0_default = CA.ComponentVector() 
@@ -57,7 +57,7 @@ end
 
 inv_case = DocuVecCase()
 scenario = NTuple{0, Symbol}()
-(;system, u0_default, p_default) = get_inverted_system(inv_case; scenario)
+(;system, u0_default, p_default) = get_case_inverted_system(inv_case; scenario)
 system
 ```
 Here, some parameters have default values, others, suche as sv₊i2, need to specified
@@ -66,19 +66,19 @@ with with returned `ComponentVector` `p_default`.
 ### Optimized parameters and individuals
 
 First, we define which parameters should be calibrated as fixed, random, or
-individual parameters using function [`get_mixed_keys`](@ref).
+individual parameters using function [`get_case_mixed_keys`](@ref).
 Next, we define which individuals take part in the inversion scenario using
-function [`get_indiv_ids`](@ref)
+function [`get_case_indiv_ids`](@ref)
 
 ```@example doc
-function CrossInverts.get_mixed_keys(::AbstractCrossInversionCase; scenario)
+function CrossInverts.get_case_mixed_keys(::AbstractCrossInversionCase; scenario)
     (;
         fixed = (:sv₊p,),
         random = (:sv₊x, :sv₊τ),
         indiv = (:sv₊i,))
 end
 
-CrossInverts.get_indiv_ids(::DocuVecCase; scenario) = (:A, :B, :C)
+CrossInverts.get_case_indiv_ids(::DocuVecCase; scenario) = (:A, :B, :C)
 nothing # hide
 ```
 
@@ -88,14 +88,14 @@ We need to provide additional information to the inversion, such as observations
 observation uncertainties, and prior distribution.
 
 We provide priors with function 
-[`get_priors_dict`](@ref). For simplicity we return the same priors independent 
+[`get_case_priors_dict`](@ref). For simplicity we return the same priors independent 
 of the individual or the scenario. 
 For the SymbolicArray parameters, we need to provide a Multivariate distribution.
 Here, we provide a product distribution of uncorrelated LogNormal distributions,
 which are specified by its mode and upper quantile using [`df_from_paramsModeUpperRows`](@ref).
 
 ```@example doc
-function CrossInverts.get_priors_dict(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
+function CrossInverts.get_case_priors_dict(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     #using DataFrames, Tables, DistributionFits, Chain
     paramsModeUpperRows = [
         # τ = 3.0, i = 0.1, p = [1.1, 1.2, 1.3])
@@ -120,14 +120,14 @@ function product_MvLogNormal(comp...)
     MvLogNormal(μ, Σ)
 end
 
-get_priors_dict(inv_case, :A; scenario)
+get_case_priors_dict(inv_case, :A; scenario)
 ```
 
 Similarly, we provide prior distributions for uncertainty of
-the random effects by function [`get_priors_random_dict`](@ref).
+the random effects by function [`get_case_riors_random_dict`](@ref).
 
 ```@example doc
-function CrossInverts.get_priors_random_dict(::DocuVecCase; scenario = NTuple{0, Symbol}())
+function CrossInverts.get_case_riors_random_dict(::DocuVecCase; scenario = NTuple{0, Symbol}())
     # prior in σ rather than σstar
     d_exp = Exponential(log(1.05))
     dd = Dict{Symbol, Distribution}([:sv₊τ, :sv₊i] .=> d_exp)
@@ -135,22 +135,22 @@ function CrossInverts.get_priors_random_dict(::DocuVecCase; scenario = NTuple{0,
     dd
 end
 
-get_priors_random_dict(inv_case; scenario)
+get_case_riors_random_dict(inv_case; scenario)
 ```
 
 Further, the type of distribution of observation uncertainties of 
 the observations of different data streams by function 
-[`get_obs_uncertainty_dist_type`](@ref).
+[`get_case_obs_uncertainty_dist_type`](@ref).
 
 ```@example doc
-function CrossInverts.get_obs_uncertainty_dist_type(::DocuVecCase, stream;
+function CrossInverts.get_case_obs_uncertainty_dist_type(::DocuVecCase, stream;
         scenario = NTuple{0, Symbol}())
     dtypes = Dict{Symbol, Type}(:sv₊dec2 => LogNormal,
         :sv₊x => MvLogNormal)
     dtypes[stream]
 end
 
-get_obs_uncertainty_dist_type(inv_case, :sv₊dec2; scenario)
+get_case_obs_uncertainty_dist_type(inv_case, :sv₊dec2; scenario)
 ```
 
 Finally, for each
@@ -163,12 +163,12 @@ we provide a vectors of
 - obs_true (optionally): values of the true model to be rediscovered
   in synthetic experiments
 
-This is done by implementing function [`get_indivdata`](@ref).
+This is done by implementing function [`get_case_indivdata`](@ref).
 Usually, this would be read information from a file or database. Here, we provide 
 the numbers as text.
 
 ```@example doc   
-function CrossInverts.get_indivdata(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
+function CrossInverts.get_case_indivdata(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
     data = (A = (sv₊x = (t = [0.2, 0.4, 1.0, 2.0],
                 obs = [
                     [2.3696993004601956, 2.673733320916141],
@@ -271,23 +271,23 @@ function CrossInverts.get_indivdata(::DocuVecCase, indiv_id; scenario = NTuple{0
     data[indiv_id]
 end
 
-get_indivdata(inv_case, :A; scenario)
+get_case_indivdata(inv_case, :A; scenario)
 ```
 
 Often, when one parameter is adjusted, this has consequences for other non-optimized
-parameters. Function [`get_problemupdater`](@ref) allows to provide a `ParameterUpdater` 
+parameters. Function [`get_case_problemupdater`](@ref) allows to provide a `ParameterUpdater` 
 to take care.
 In this example, when optimizing parameter i, then parameter i2 is set to the
 same value.
 
 ```@example doc
-function CrossInverts.get_problemupdater(::DocuVecCase; system, scenario = NTuple{0, Symbol}())
+function CrossInverts.get_case_problemupdater(::DocuVecCase; system, scenario = NTuple{0, Symbol}())
     mapping = (:sv₊i => :sv₊i2,)
     pset = ODEProblemParSetter(system, Symbol[]) # parsetter to get state symbols
     get_ode_problemupdater(KeysProblemParGetter(mapping, keys(axis_state(pset))), system)
 end
 
-get_problemupdater(inv_case; system, scenario)
+get_case_problemupdater(inv_case; system, scenario)
 ```
 ### Compiling the setup
 

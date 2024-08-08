@@ -36,7 +36,7 @@ function gen_model_cross(;
         streams = keys(first(obs)),
         dtypes = (;
             zip(streams,
-                (get_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams))...)
+                (get_case_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams))...)
         #saveat = union(map_keys(stream -> stream.t, obs)),
         stream_nums = (;
             zip(streams,
