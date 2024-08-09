@@ -52,8 +52,9 @@ end
 @testset "setup_tools_indiv and setup_priors_pop" begin
     #popt = CA.ComponentVector(state = (sv₊x1=1.0, sv₊x2=1.0), par=(sv₊τ=1.0, sv₊i=1.0))
     popt = CA.ComponentVector(state = (sv₊x = [1.0, 1.0],),
-        par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3)))
-    random = flatten1(popt)[(:sv₊x, :sv₊τ)]
+        par = (sv₊τ = 1.0, sv₊p = fill(1.0, 3), sv₊b1 = 0.01))
+    ranadd = flatten1(popt)[(:sv₊b1,)]
+    ranmul = flatten1(popt)[(:sv₊x, :sv₊τ)]
     indiv = flatten1(popt)[(:sv₊p,)]
     # TODO after refactoring setup_tools_indiv
     # @test_throws "i2" setup_tools_indiv(:A; inv_case, scenario, system = sys,
@@ -70,11 +71,17 @@ end
     # @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()
-    priors_pop = setup_priors_pop(keys(fixed), keys(random); inv_case, scenario)
+    priors_pop = setup_priors_pop(keys(fixed), keys(ranadd), keys(ranmul); inv_case, scenario)
     @test eltype(priors_pop.fixed) <: Distribution
     @test keys(priors_pop.fixed) == keys(fixed)
-    @test eltype(priors_pop.random) <: Distribution
-    @test keys(priors_pop.random) == keys(random)
-    @test eltype(priors_pop.random_σ) <: Distribution
-    @test keys(priors_pop.random_σ) == keys(random)
+    #
+    @test eltype(priors_pop.ranadd) <: Distribution
+    @test keys(priors_pop.ranadd) == keys(ranadd)
+    @test eltype(priors_pop.ranadd_σ) <: Distribution
+    @test keys(priors_pop.ranadd_σ) == keys(ranadd)
+    #
+    @test eltype(priors_pop.ranmul) <: Distribution
+    @test keys(priors_pop.ranmul) == keys(ranmul)
+    @test eltype(priors_pop.ranmul_σ) <: Distribution
+    @test keys(priors_pop.ranmul_σ) == keys(ranmul)
 end;

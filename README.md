@@ -16,6 +16,8 @@ and others may be allowed to vary freely (individual parameters).
 
 This package helps with specifying priors and and dealing with population and individuals Further, it helps providing different specification by different scenarios.
 
+See the [walkthrough](https://bgctw.github.io/CrossInverts.jl/dev/example_vec/)
+in the documentation for example code.
 
 ## Inversion specification
 The user needs to specify for a given scenario
@@ -24,6 +26,7 @@ The user needs to specify for a given scenario
 - which individuals take part in the inversion
 - priors of parameters and priors of uncertainty of random effects
 - observations and associated uncertainty
+
 and optionally
 - initial states and parameters (or let them infer from priors)
 - a `ProblemUpdater` in case changes of optimized parameters propagate to other

@@ -65,7 +65,7 @@ with with returned `ComponentVector` `p_default`.
 
 ### Optimized parameters and individuals
 
-First, we define which parameters should be calibrated as fixed, random, or
+First, we define which parameters should be calibrated as fixed, ranmul, or
 individual parameters using function [`get_case_mixed_keys`](@ref).
 Next, we define which individuals take part in the inversion scenario using
 function [`get_case_indiv_ids`](@ref)
@@ -74,7 +74,8 @@ function [`get_case_indiv_ids`](@ref)
 function CrossInverts.get_case_mixed_keys(::AbstractCrossInversionCase; scenario)
     (;
         fixed = (:sv₊p,),
-        random = (:sv₊x, :sv₊τ),
+        ranadd = (),
+        ranmul = (:sv₊x, :sv₊τ),
         indiv = (:sv₊i,))
 end
 
@@ -124,10 +125,10 @@ get_case_priors_dict(inv_case, :A; scenario)
 ```
 
 Similarly, we provide prior distributions for uncertainty of
-the random effects by function [`get_case_riors_random_dict`](@ref).
+the random effects by function [`get_case_priors_random_dict`](@ref).
 
 ```@example doc
-function CrossInverts.get_case_riors_random_dict(::DocuVecCase; scenario = NTuple{0, Symbol}())
+function CrossInverts.get_case_priors_random_dict(::DocuVecCase; scenario = NTuple{0, Symbol}())
     # prior in σ rather than σstar
     d_exp = Exponential(log(1.05))
     dd = Dict{Symbol, Distribution}([:sv₊τ, :sv₊i] .=> d_exp)
@@ -135,7 +136,7 @@ function CrossInverts.get_case_riors_random_dict(::DocuVecCase; scenario = NTupl
     dd
 end
 
-get_case_riors_random_dict(inv_case; scenario)
+get_case_priors_random_dict(inv_case; scenario)
 ```
 
 Further, the type of distribution of observation uncertainties of 
@@ -304,10 +305,13 @@ keys(pop_info.sample0)
 
 A single sample is a ComponentVector with components
 - fixed: fixed effects
-- random: mean random effects
-- random_σ: uncertainty parameter of the random effects
-- indiv: Component vector of each site with individual effects
-- indiv_random: 
+- ranadd: mean additive random effects
+- ranmul: mean multiplicative random effects
+- ranadd_σ: uncertainty parameter of the additive random effects
+- ranmul_σ: uncertainty parameter of the multiplicative random effects
+- indiv: Component vector of each individual with individual effects
+- indiv_ranadd: Difference between individual and mean additive random effect
+- indiv_ranmul: Ratio betweenn individual and mean multiplicative random effect
 
 A reminder of the effects:
 ```@example doc
@@ -316,7 +320,7 @@ pop_info.mixed_keys
 
 Accessing single components.
 ```@example doc
-pop_info.sample0[:random]
+pop_info.sample0[:ranmul]
 ```
 ```@example doc
 pop_info.sample0[:indiv][:A]
@@ -338,8 +342,8 @@ solver = AutoTsit5(Rodas5P())
 sim_sols_probs = gen_sim_sols_probs(; 
     tools = indiv_info.tools, psets = pop_info.psets, 
     problemupdater = pop_info.problemupdater, solver)
-(fixed, random, indiv, indiv_random) = pop_info.mixed
-sols_probs = sim_sols_probs(fixed, random, indiv, indiv_random)
+(;fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul) = pop_info.mixed
+sols_probs = sim_sols_probs(fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul)
 (sol, problem_opt) = sols_probs[1]
 sol[:sv₊x]
 nothing # hide
@@ -373,14 +377,16 @@ names(chn, :parameters)
 ```
 
 For each scalarized value of the effects there is a series of samples.
-- a single estimate for each fixed effect. For multivariate variables
-the index is appended last, e.g. `Symbol("fixed[:sv₊p][1]")`.
-- a single mean random effect, e.g. `Symbol("random[:sv₊τ]")`.
-- an uncertainty parameter of the random effect, e.g. `Symbol("prand_σ[:sv₊τ]")`.
-- a individual effect for each individual, e.g. `Symbol("indiv[:sv₊i, 3]")` 
+- a group estimate for each fixed effect. For multivariate variables
+  the index is appended last, e.g. `Symbol("fixed[:sv₊p][1]")`.
+- a group mean additive random effect (none in the example case).
+- a group mean multiplicative random effect, e.g. `Symbol("ranmul[:sv₊τ]")`.
+- an uncertainty parameter of the ranmul effect, e.g. `Symbol("pranmul_σ[:sv₊τ]")`.
+- an individual effect for each individual, e.g. `Symbol("indiv[:sv₊i, 3]")` 
   for the third individual.
-- the individual multiplier for the random effect for each individual,
-  e.g. `Symbol("indiv_random[:sv₊τ, 3]")`.
+- the individual offset for the ranadd effect for each individual (none in the example case),
+- the individual multiplier for the ranmul effect for each individual,
+  e.g. `Symbol("indiv_ranmul[:sv₊τ, 3]")`.
 
 ## Extracting individual effects 
 
@@ -388,8 +394,8 @@ Each row of a multivariate chain can be extracted as a ComponentVector
 as described in [Extracting effects from sampled object].
 
 ```@example doc
-chn2 = chn[:,vcat(pop_info.effect_pos[:indiv_random][:B]...),:]
-chn3 = extract_group(chn2, :indiv_random, pop_info.indiv_ids)
+chn2 = chn[:,vcat(pop_info.effect_pos[:indiv_ranmul][:B]...),:]
+chn3 = extract_group(chn2, :indiv_ranmul, pop_info.indiv_ids)
 names(chn3)
 ```
 

@@ -1,47 +1,3 @@
-# """
-#     setup_scenario(indiv_id, targetlim, scenario, u0, p;
-#         system = get_plant_sesam_system(scenario),
-#         tspan = (0, 20000),
-#         indivdata = get_case_indivdata(indiv_id),    
-#         )
-
-# Initialize the names of parameters to optimize, adjust initial state, 
-# setup and ParameterSetters for given scenario
-
-# Returns a NamedTuple with components
-# - `u0`: CA.ComponentVector of initial conditions
-# - `p`: CA.ComponentVector of parameters, 
-# - `pset`: ODEProblemParSetter to update optimized parameters in problem
-# - `problemupdater`: ProblemUpdater to adjust other parameter after applying psci, 
-# - `problem`: ODEProblem initialized by given u0, and p
-# - `system`: ODESystem
-# """
-# function setup_popt_scenario(indiv_id, targetlim, scenario; kwargs... )
-#     u0d, pd = get_initial_sesam_parameters()
-#     init_u0_p_poptnames(indiv_id, targetlim, scenario, u0d, pd)
-# end
-
-# function setup_tools_scenario_u0_popt(indiv_id, targetlim, scenario, u0, popt,
-#     kwargs...
-#     )
-#     tools = setup_tools_indiv(indiv_id, targetlim, scenario; kwargs...)
-#     pset_u0 = ODEProblemParSetter(tools.system, CA.Axis(strip_trailing_zero.(keys(u0))))
-#     pset_popt = ODEProblemParSetter(tools.system, CA.Axis(keys(popt)))
-#     tools = merge(tools, (;problem=set_u0_popt(
-#         tools.problem, u0, popt; pset_u0, pset_popt, problemupdater=tools.problemupdater)))
-#     (;tools, pset_u0, pset_popt)
-# end
-
-# function set_u0_popt(problem, u0, popt; 
-#     pset_u0::AbstractProblemParSetter, 
-#     pset_popt::AbstractProblemParSetter, 
-#     problemupdater::AbstractProblemUpdater = NullProblemUpdater()
-# )
-#     problem = remake(problem, u0, pset_u0)
-#     problem = remake(problem, popt, pset_popt)
-#     problem = problemupdater(problem)
-# end
-
 """
     AbstractCrossInversionCase
 
@@ -53,9 +9,9 @@ Concrete types should implement
 - `get_case_mixed_keys(::AbstractCrossInversionCase; scenario)`
 - `get_case_indiv_ids(::AbstractCrossInversionCase; scenario)`
 - `get_case_priors_dict(::AbstractCrossInversionCase, indiv_id; scenario)`
-  Priors for model parameters in fixed, random, and indiv effects. 
-- `get_case_riors_random_dict(::AbstractCrossInversionCase; scenario)`
-  Priors for meta-parameters for random effects.
+  Priors for optimized model effects, which may differ by individual. 
+- `get_case_priors_random_dict(::AbstractCrossInversionCase; scenario)`
+  Priors for meta-parameters for ranadd and ranmul effects.
 - `get_case_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)`
   Type of distribution of observation-uncertainty per stream.
 - `get_case_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)`
@@ -111,7 +67,7 @@ function get_case_inverted_system end
 """
     get_case_mixed_keys(::AbstractCrossInversionCase; scenario)
 
-Provide NamedTuple `(;fixed, random, indiv)` of tuples of parameter names (Symbol) that
+Provide NamedTuple `(;fixed, ranadd, ranmul, indiv)` of tuples of parameter names (Symbol) that
 are optimized in the inversion scenario.
 """
 function get_case_mixed_keys end
@@ -157,11 +113,12 @@ function get_case_priors_dict end
 
 
 """
-    get_case_riors_random_dict(::AbstractCrossInversionCase; scenario)
+    get_case_priors_random_dict(::AbstractCrossInversionCase; scenario)
 
-Provide a dictionary (par -> Distribution) for prior parameters and unknowns.
+Provide a dictionary (par -> Distribution) for hyperpriors
+of the spread of the ranmul and ranadd effects.
 """
-function get_case_riors_random_dict end
+function get_case_priors_random_dict end
 
 """
     df_from_paramsModeUpperRows(paramsModeUpperRows)
