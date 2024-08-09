@@ -189,3 +189,86 @@ end
 # end
 
 
+"""
+Generate observations and uncertainties according to priors
+
+Uncertainty parameters of differnt streams are given with Dictionary 
+`unc_par`. 
+The type of distribution is obtained from 
+`get_case_obs_uncertainty_dist_type(inv_case, s; scenario)`.
+
+For Normal and LogNormal this is the σ standard deviation parameter.
+For MvNormal and MvLogNormal this is the Σ Covariance matrix.
+Typical LogNormal is `convert(Matrix, PDiagMat(log.([1.1, 1.1])))`.
+
+"""
+function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng = StableRNG(123))
+    # using and setup in test_util_mixed
+    system_u0_p_default = get_case_inverted_system(inv_case; scenario)
+    (;system, u0_default, p_default) = system_u0_p_default
+    defaults(system)
+    #indiv_ids = get_case_indiv_ids(inv_case; scenario)
+    p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, system_u0_p_default, rng)
+    # p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
+    #     system_u0_p_default = (; system,
+    #         u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
+    #using DistributionFits, StableRNGs, Statistics
+    # other usings from test_util_mixed
+    _dict_nums = get_system_symbol_dict(system)
+    # setup a problem, numbers do not matter, because set below from p_indiv
+    t = [0.0]
+    problem = ODEProblem(system, system_num_dict(u0_default, _dict_nums), (0.0, maximum(t)), system_num_dict(p_default, _dict_nums))
+    #indiv_id = first(keys(p_indiv))
+    streams = collect(keys(unc_par))
+    dtypes = Dict(s => get_case_obs_uncertainty_dist_type(inv_case, s; scenario)
+    for s in streams)
+    d_noise = Dict(s => begin
+                       unc = unc_par[s]
+                       m0 = ((dtypes[s] <: Normal) || (dtypes[s] <: MvNormal)) ? 0.0 : 1.0
+                       m = unc isa AbstractMatrix ? fill(m0, size(unc, 1)) : m0
+                       fit_mean_Σ(dtypes[s], m, unc)
+                   end for s in streams)
+    # d_noise[:sv₊x]
+    indiv_dict = Dict(p_indiv.indiv_id .=> zip(p_indiv.u0, p_indiv.p))
+    # indiv_id = first(p_indiv.indiv_id)
+    obs_tuple = map(p_indiv.indiv_id) do indiv_id
+        #st = Dict(Symbolics.scalarize(sv.x .=> p_indiv[indiv_id].u0.sv₊x))
+        #p_new = Dict(sv.i .=> p_indiv[indiv_id].sv₊i)
+        #prob = ODEProblem(system, st, (0.0, 2.0), p_new)
+        u0_dict = system_num_dict(indiv_dict[indiv_id][1], _dict_nums)
+        p_dict = system_num_dict(indiv_dict[indiv_id][2], _dict_nums)
+        probo = remake(problem, u0 = u0_dict, p = p_dict)
+        #pset = ODEProblemParSetter(get_system(probo), Symbol[])        
+        #x1 = get_state_labeled(pset, probo).x1
+        #x2 = get_state_labeled(pset, probo).x2
+        #get_par_labeled(pset, probo)
+        sol = solve(probo, solver, saveat = t)
+        #Main.@infiltrate_main
+        #sol[[sv.x[1], sv.dec2]]
+        #sol[_dict_nums[:sv₊dec2]]
+        #stream = last(collect(streams)) #stream = first(streams)
+        tmp = map(streams) do stream
+            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
+            n_obs = length(obs_true)
+            obs_unc = fill(unc_par[stream], n_obs)  # may be different for each obs
+            noise = rand(rng, d_noise[stream], n_obs)
+            obs = if dtypes[stream] <: Union{Normal, MvNormal}
+                length(size(noise)) == 1 ? 
+                obs = obs_true .+ noise :
+                obs = map(obs_true, eachcol(noise)) do obs_i, noise_i
+                    obs_i .+ noise_i # within each timepoint add generated noise
+                end
+            else
+                length(size(noise)) == 1 ?
+                obs = obs_true .* noise :
+                obs = map(obs_true, eachcol(noise)) do obs_i, noise_i
+                    obs_i .* noise_i
+                end
+            end
+            (; t, obs, obs_unc, obs_true)
+        end
+        (; zip(streams, tmp)...)
+    end
+    res = (;indivdata=(; zip(p_indiv.indiv_id, obs_tuple)...), p_indiv)
+end
+

@@ -201,6 +201,7 @@ and return a new ComponentArray of means of each distribution.
 meandist2componentarray = function (priors)
     # need to first create several ComponentVectors and then reduce
     # otherwise map on mixing Scalars and Vectors yields eltype any
+    isempty(priors) && return(ComponentVector{Float64}())
     @chain priors begin
         map(keys(_)) do k
             ComponentVector(NamedTuple{(k,)}(Ref(mean(_[k]))))

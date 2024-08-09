@@ -6,6 +6,7 @@ using DataFrames
 using CSV
 using Tables: Tables
 using ComponentArrays
+using ComponentArrays: ComponentArrays as CA
 using Distributions, DistributionFits
 using Chain
 using LoggingExtras
@@ -25,10 +26,13 @@ export get_case_problemupdater
 export get_case_obs_uncertainty_dist_type
 export get_case_u0p
 export df_from_paramsModeUpperRows
-include("site_data.jl")
+export simulate_indivdata
+include("indiv_data.jl")
 
 export SampleSystemVecCase
 include("example_system_vec.jl")
+export SampleSystemStaticCase
+include("example_system_static.jl")
 
 export setup_inversion
 #export get_indiv_parameters_from_priors

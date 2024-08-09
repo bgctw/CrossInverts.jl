@@ -32,7 +32,7 @@ end
 
 get_case_indiv_ids(::SampleSystemVecCase; scenario) = (:A, :B, :C)
 
-function get_case_mixed_keys(::AbstractCrossInversionCase; scenario)
+function get_case_mixed_keys(::SampleSystemVecCase; scenario)
     (;
         fixed = (:sv₊p,),
         ranadd = (:sv₊b1,),
@@ -95,73 +95,13 @@ function get_case_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
 end
 
 gen_site_data_vec = () -> begin
-    # using and setup in test_util_mixed
     inv_case = SampleSystemVecCase()
     scenario = NTuple{0, Symbol}()
-    system_u0_p_default = get_case_inverted_system(inv_case; scenario)
-    system = system_u0_p_default.system
-    p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, system_u0_p_default)
-    # p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
-    #     system_u0_p_default = (; system,
-    #         u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
-    #using DistributionFits, StableRNGs, Statistics
-    # other usings from test_util_mixed
-    _dict_nums = get_system_symbol_dict(system)
-    # setup a problem, numbers do not matter, because set below from p_indiv
-    t = [0.2, 0.4, 1.0, 2.0]
-    u0_A, p_A = (p_indiv.u0[1], p_indiv.p[1])
-    p_new = Dict(system.sv.i .=> p_A.sv₊i, system.sv.i2 => p_A.sv₊i)
-    problem = ODEProblem(system, u0_A, (0.0, 2.0), p_new)
-    #indiv_id = first(keys(p_indiv))
-    streams = (:sv₊x, :sv₊dec2, :sv₊b1obs)
-    dtypes = Dict(s => get_case_obs_uncertainty_dist_type(inv_case, s; scenario)
-    for s in streams)
-    unc_par = Dict(:sv₊dec2 => 1.1, :sv₊x => convert(Matrix, PDiagMat(log.([1.1, 1.1]))),
+    unc_par = Dict(
+        :sv₊dec2 => 1.1,
+        :sv₊x => convert(Matrix, PDiagMat(log.([1.1, 1.1]))),
         :sv₊b1obs => 0.5)
-    d_noise = Dict(s => begin
-                       unc = unc_par[s]
-                       m0 = ((dtypes[s] <: Normal) || (dtypes[s] <: MvNormal)) ? 0.0 : 1.0
-                       m = unc isa AbstractMatrix ? fill(m0, size(unc, 1)) : m0
-                       fit_mean_Σ(dtypes[s], m, unc)
-                   end for s in streams)
-    # d_noise[:sv₊x]
-    rng = StableRNG(123)
-    indiv_dict = Dict(p_indiv.indiv_id .=> zip(p_indiv.u0, p_indiv.p))
-    # indiv_id = first(p_indiv.indiv_id)
-    obs_tuple = map(p_indiv.indiv_id) do indiv_id
-        #st = Dict(Symbolics.scalarize(sv.x .=> p_indiv[indiv_id].u0.sv₊x))
-        #p_new = Dict(sv.i .=> p_indiv[indiv_id].sv₊i)
-        #prob = ODEProblem(system, st, (0.0, 2.0), p_new)
-        probo = remake(problem,
-            u0 = CA.getdata(indiv_dict[indiv_id][1]),
-            p = CA.getdata(indiv_dict[indiv_id][2]))
-        sol = solve(probo, Tsit5(), saveat = t)
-        #sol[[sv.x[1], sv.dec2]]
-        #sol[_dict_nums[:sv₊dec2]]
-        #stream = last(streams) #stream = first(streams)
-        tmp = map(streams) do stream
-            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
-            n_obs = length(obs_true)
-            obs_unc = fill(unc_par[stream], n_obs)  # may be different for each obs
-            noise = rand(rng, d_noise[stream], n_obs)
-            obs = if dtypes[stream] <: Union{Normal, MvNormal}
-                length(size(noise)) == 1 ?
-                obs = obs_true .+ noise :
-                obs = map(obs_true, eachcol(noise)) do obs_i, noise_i
-                    obs_i .+ noise_i
-                end
-            else
-                length(size(noise)) == 1 ?
-                obs = obs_true .* noise :
-                obs = map(obs_true, eachcol(noise)) do obs_i, noise_i
-                    obs_i .* noise_i
-                end
-            end
-            (; t, obs, obs_unc, obs_true)
-        end
-        (; zip(streams, tmp)...)
-    end
-    res = (; zip(p_indiv.indiv_id, obs_tuple)...)
+    res = simulate_indivdata(;inv_case, scenario, unc_par)
     #clipboard(res) # not on slurm
     res  # copy from terminal and paste into get_case_indivdata
 end
