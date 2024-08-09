@@ -178,7 +178,8 @@ end
 
 """
 Put priors for `fixed, ranadd, ranmul, ranadd_σ, and ranmul_σ` into a ComponentVector.
-The `indiv` priors can be indiv_id-specific, they are setup in TODO `setup_tools_indiv`.     
+The `indiv` priors can be indiv_id-specific They are setup separately in 
+`setup_inversion`.     
 """
 function setup_priors_pop(keys_fixed, keys_ranadd, keys_ranmul;
     inv_case::AbstractCrossInversionCase, scenario,

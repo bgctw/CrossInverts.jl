@@ -50,15 +50,14 @@ function gen_model_cross(;
             npsite = count_paropt(psets.indiv)
             fixed_nl = StaticArrays.MVector{npfix, T}(undef)
             #fixed_nl = Vector{T}(undef, npfix)
-            fixed = fixed1 = label_paropt_flat1(psets.fixed, fixed_nl)
+            fixed = fixed1 = label_paropt_flat1(psets.fixed, fixed_nl; omitwarning=true)
             #k = first(keys(fixed))
             for k in keys(fixed)
                 fixed[k] ~ priors_pop.fixed[k]
                 #fixed[k] = rand(priors_pop.fixed[k])
             end
             ranadd_nl = StaticArrays.MVector{npranadd, T}(undef)
-            #TODO implement omitwarning: ranadd = label_paropt_flat1(psets.ranadd, ranadd_nl; omitwarning=true)
-            ranadd = label_paropt_flat1(psets.ranadd, ranadd_nl)
+            ranadd = label_paropt_flat1(psets.ranadd, ranadd_nl; omitwarning=true)
             #k = first(keys(ranadd))
             for k in keys(ranadd)
                 ranadd[k] ~ priors_pop.ranadd[k]
@@ -66,7 +65,7 @@ function gen_model_cross(;
             end
             #ranmul = Vector{T}(undef, npranmul)
             ranmul_nl = StaticArrays.MVector{npranmul, T}(undef)
-            ranmul = label_paropt_flat1(psets.ranmul, ranmul_nl)
+            ranmul = label_paropt_flat1(psets.ranmul, ranmul_nl; omitwarning=true)
             #k = first(keys(ranmul))
             for k in keys(ranmul)
                 ranmul[k] ~ priors_pop.ranmul[k]
@@ -74,14 +73,14 @@ function gen_model_cross(;
             end
             #pranadd_σ = Vector{T}(undef, npranadd)
             pranadd_σ_nl = StaticArrays.MVector{npranadd, T}(undef)
-            pranadd_σ = label_paropt_flat1(psets.ranadd, pranadd_σ_nl)
+            pranadd_σ = label_paropt_flat1(psets.ranadd, pranadd_σ_nl; omitwarning=true)
             #k = first(keys(pranadd_σ))
             for k in keys(pranadd_σ)
                 pranadd_σ[k] ~ priors_pop.ranadd_σ[k]
                 #pranadd_σ[k] = rand(priors_pop.ranadd_σ[k])
             end
             pranmul_σ_nl = StaticArrays.MVector{npranmul, T}(undef)
-            pranmul_σ = label_paropt_flat1(psets.ranmul, pranmul_σ_nl)
+            pranmul_σ = label_paropt_flat1(psets.ranmul, pranmul_σ_nl; omitwarning=true)
             #k = first(keys(pranmul_σ))
             for k in keys(pranmul_σ)
                 pranmul_σ[k] ~ priors_pop.ranmul_σ[k]
@@ -89,8 +88,8 @@ function gen_model_cross(;
             end
             # indiv = Matrix{T}(undef, npsite, n_indiv)
             # indiv_ranmul = Matrix{T}(undef, npranmul, n_indiv)
-            #indiv1_l = label_paropt_flat1(psets.indiv, 1:count_par(psets.indiv))
-            #template = label_paropt_flat1(psets.indiv, 1:count_paropt(psets.indiv))
+            #indiv1_l = label_paropt_flat1(psets.indiv, 1:count_par(psets.indiv); omitwarning=true)
+            #template = label_paropt_flat1(psets.indiv, 1:count_paropt(psets.indiv); omitwarning=true)
             ax_indiv = axis_paropt_flat1(psets.indiv)
             indiv_nl = StaticArrays.MMatrix{npsite, n_indiv, T}(undef)
             indiv = ComponentArray(getdata(indiv_nl), ax_indiv, FlatAxis())
