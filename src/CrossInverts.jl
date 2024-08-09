@@ -20,7 +20,7 @@ using PDMats: PDiagMat
 export AbstractCrossInversionCase
 export get_case_inverted_system
 export get_case_mixed_keys, get_case_indiv_ids
-export get_case_priors_dict, get_case_riors_random_dict, get_case_obs_uncertainty_dist_type, get_case_indivdata
+export get_case_priors_dict, get_case_priors_random_dict, get_case_obs_uncertainty_dist_type, get_case_indivdata
 export get_case_problemupdater
 export get_case_obs_uncertainty_dist_type
 export get_case_u0p
@@ -33,7 +33,7 @@ include("example_system_vec.jl")
 export setup_inversion
 #export get_indiv_parameters_from_priors
 export setup_priors_pop, setup_psets_mixed
-export setup_tools_indiv, dict_to_cv
+export dict_to_cv
 export get_priors_dict_indiv
 include("util_mixed.jl")
 

@@ -36,7 +36,8 @@ function gen_model_cross(;
         streams = keys(first(obs)),
         dtypes = (;
             zip(streams,
-                (get_case_obs_uncertainty_dist_type(inv_case, s; scenario) for s in streams))...)
+                (get_case_obs_uncertainty_dist_type(inv_case, s; scenario)
+                for s in streams))...)
         #saveat = union(map_keys(stream -> stream.t, obs)),
         stream_nums = (;
             zip(streams,
@@ -44,7 +45,8 @@ function gen_model_cross(;
 
         Turing.@model function tmodel_cross(obs_target, ::Type{T} = Float64) where {T}
             npfix = count_paropt(psets.fixed)
-            nprand = count_paropt(psets.random)
+            npranmul = count_paropt(psets.ranmul)
+            npranadd = count_paropt(psets.ranadd)
             npsite = count_paropt(psets.indiv)
             fixed_nl = StaticArrays.MVector{npfix, T}(undef)
             #fixed_nl = Vector{T}(undef, npfix)
@@ -54,32 +56,50 @@ function gen_model_cross(;
                 fixed[k] ~ priors_pop.fixed[k]
                 #fixed[k] = rand(priors_pop.fixed[k])
             end
-            #random = Vector{T}(undef, nprand)
-            random_nl = StaticArrays.MVector{nprand, T}(undef)
-            random = label_paropt_flat1(psets.random, random_nl)
-            #k = first(keys(random))
-            for k in keys(random)
-                random[k] ~ priors_pop.random[k]
-                #random[k] = rand(priors_pop.random[k])
+            ranadd_nl = StaticArrays.MVector{npranadd, T}(undef)
+            #TODO implement omitwarning: ranadd = label_paropt_flat1(psets.ranadd, ranadd_nl; omitwarning=true)
+            ranadd = label_paropt_flat1(psets.ranadd, ranadd_nl)
+            #k = first(keys(ranadd))
+            for k in keys(ranadd)
+                ranadd[k] ~ priors_pop.ranadd[k]
+                #ranadd[k] = rand(priors_pop.ranadd[k])
             end
-            #prand_σ = Vector{T}(undef, nprand)
-            prand_σ_nl = StaticArrays.MVector{nprand, T}(undef)
-            prand_σ = label_paropt_flat1(psets.random, prand_σ_nl)
-            #k = first(keys(prand_σ))
-            for k in keys(prand_σ)
-                prand_σ[k] ~ priors_pop.random_σ[k]
-                #prand_σ[k] = rand(priors_pop.random_σ[k])
+            #ranmul = Vector{T}(undef, npranmul)
+            ranmul_nl = StaticArrays.MVector{npranmul, T}(undef)
+            ranmul = label_paropt_flat1(psets.ranmul, ranmul_nl)
+            #k = first(keys(ranmul))
+            for k in keys(ranmul)
+                ranmul[k] ~ priors_pop.ranmul[k]
+                #ranmul[k] = rand(priors_pop.ranmul[k])
+            end
+            #pranadd_σ = Vector{T}(undef, npranadd)
+            pranadd_σ_nl = StaticArrays.MVector{npranadd, T}(undef)
+            pranadd_σ = label_paropt_flat1(psets.ranadd, pranadd_σ_nl)
+            #k = first(keys(pranadd_σ))
+            for k in keys(pranadd_σ)
+                pranadd_σ[k] ~ priors_pop.ranadd_σ[k]
+                #pranadd_σ[k] = rand(priors_pop.ranadd_σ[k])
+            end
+            pranmul_σ_nl = StaticArrays.MVector{npranmul, T}(undef)
+            pranmul_σ = label_paropt_flat1(psets.ranmul, pranmul_σ_nl)
+            #k = first(keys(pranmul_σ))
+            for k in keys(pranmul_σ)
+                pranmul_σ[k] ~ priors_pop.ranmul_σ[k]
+                #pranmul_σ[k] = rand(priors_pop.ranmul_σ[k])
             end
             # indiv = Matrix{T}(undef, npsite, n_indiv)
-            # indiv_random = Matrix{T}(undef, nprand, n_indiv)
+            # indiv_ranmul = Matrix{T}(undef, npranmul, n_indiv)
             #indiv1_l = label_paropt_flat1(psets.indiv, 1:count_par(psets.indiv))
             #template = label_paropt_flat1(psets.indiv, 1:count_paropt(psets.indiv))
             ax_indiv = axis_paropt_flat1(psets.indiv)
             indiv_nl = StaticArrays.MMatrix{npsite, n_indiv, T}(undef)
             indiv = ComponentArray(getdata(indiv_nl), ax_indiv, FlatAxis())
-            indiv_random_nl = StaticArrays.MMatrix{nprand, n_indiv, T}(undef)
-            indiv_random = ComponentArray(getdata(indiv_random_nl),
-                first(getaxes(random)), FlatAxis())
+            indiv_ranadd_nl = StaticArrays.MMatrix{npranadd, n_indiv, T}(undef)
+            indiv_ranadd = ComponentArray(getdata(indiv_ranadd_nl),
+                first(getaxes(ranadd)), FlatAxis())
+            indiv_ranmul_nl = StaticArrays.MMatrix{npranmul, n_indiv, T}(undef)
+            indiv_ranmul = ComponentArray(getdata(indiv_ranmul_nl),
+                first(getaxes(ranmul)), FlatAxis())
             #i_indiv = 1
             # compute all indiv effects first because of order of variables in sample
             # requires to split the loop
@@ -92,29 +112,42 @@ function gen_model_cross(;
                 end
             end
             for i_indiv in 1:n_indiv
-                #k = first(keys(prand_σ))
-                for k in keys(prand_σ)
-                    ne = length(prand_σ[k])
+                #k = first(keys(pranadd_σ))
+                for k in keys(pranadd_σ)
+                    ne = length(pranadd_σ[k])
                     d = ne == 1 ?
-                        fit_mean_Σ(LogNormal, 1, prand_σ[k]) :
-                        fit_mean_Σ(MvLogNormal, fill(1, ne), PDiagMat(prand_σ[k] .^ 2))
-                    indiv_random[k, i_indiv] ~ d
-                    #indiv_random[k,i_indiv] = rand(d)
+                        fit_mean_Σ(Normal, 0.0, pranadd_σ[k]) :
+                        fit_mean_Σ(Normal, fill(0.0, ne), PDiagMat(pranadd_σ[k] .^ 2))
+                    indiv_ranadd[k, i_indiv] ~ d
+                    #indiv_ranadd[k,i_indiv] = rand(d)
+                end
+            end
+            for i_indiv in 1:n_indiv
+                #k = first(keys(pranmul_σ))
+                for k in keys(pranmul_σ)
+                    ne = length(pranmul_σ[k])
+                    d = ne == 1 ?
+                        fit_mean_Σ(LogNormal, 1.0, pranmul_σ[k]) :
+                        fit_mean_Σ(MvLogNormal, fill(1.0, ne), PDiagMat(pranmul_σ[k] .^ 2))
+                    indiv_ranmul[k, i_indiv] ~ d
+                    #indiv_ranmul[k,i_indiv] = rand(d)
                 end
             end
             #poptl = CA.ComponentVector(popt, first(getaxes(popt0)))
             #poptl = CA.ComponentVector(
-            #   vcat(fixed, random, prand_σ, vec(indiv), vec(indiv_random)), first(getaxes(popt0)))
+            #   vcat(fixed, ranadd, ranmul, pranadd_σ, pranmul_σ, vec(indiv), vec(indiv_ranadd), vec(indiv_ranmul)), first(getaxes(popt0)))
             #@show poptl
-            #Main.@infiltrate_main
             # sampling changes eltype of Any, need to convert back
-            res_sim = sim_sols_probs(convert(typeof(fixed_nl),
+            res_sim = sim_sols_probs(
+                convert(typeof(fixed_nl),
                     getdata(fixed))::typeof(fixed_nl),
-                convert(typeof(random_nl), getdata(random))::typeof(fixed_nl),
+                convert(typeof(ranadd_nl), getdata(ranadd))::typeof(ranadd_nl),
+                convert(typeof(ranmul_nl), getdata(ranmul))::typeof(ranmul_nl),
                 convert(typeof(indiv_nl), getdata(indiv))::typeof(indiv_nl),
-                convert(typeof(indiv_random_nl),
-                    getdata(indiv_random))::typeof(indiv_random_nl);
-                #saveat = saveat)
+                convert(typeof(indiv_ranadd_nl),
+                    getdata(indiv_ranadd))::typeof(indiv_ranadd_nl),                #saveat = saveat)
+                convert(typeof(indiv_ranmul_nl),
+                    getdata(indiv_ranmul))::typeof(indiv_ranmul_nl);                #saveat = saveat)
             )
             #i_indiv = 1
             for i_indiv in 1:n_indiv
@@ -152,21 +185,23 @@ function gen_model_cross(;
 end
 
 """
-    get_init_mixedmodel(fixed::ComponentVector, random::ComponentVector, indiv::ComponentMatrix,
-        priors_σ, indiv_random)
+    get_init_mixedmodel(fixed::ComponentVector, ranadd::ComponentVector, ranmul::ComponentVector, indiv::ComponentMatrix,
+        priors_σ, indiv_ranadd, indiv_ranmul)
 
 Construct a ComponentVector corresponding to the parameters sampled by the mixed model.
 Argument `indiv` should hold individual identifiers as column axis.
 
 The return has components
-`fixed`, `random`, `random_σ`, `indiv`, `indiv_random`
+`fixed`, `ranmul`, `ranmul_σ`, `indiv`, `indiv_ranmul`
 where `indiv` is a flat version with column names as entries of vectors.
 """
-function get_init_mixedmodel(psets, popt_indiv::AbstractVector{<:ComponentVector}, priors_σ;
+function get_init_mixedmodel(
+        psets, popt_indiv::AbstractVector{<:ComponentVector}, priors_σ;
         kwargs...)
-    (fixed, random, indiv, indiv_random) = extract_mixed_effects(psets, popt_indiv;
-        kwargs...)
-    get_init_mixedmodel(; fixed, random, indiv, priors_σ, indiv_random)
+    (; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul) = extract_mixed_effects(
+        psets, popt_indiv; kwargs...)
+    get_init_mixedmodel(;
+        fixed, ranadd, ranmul, indiv, priors_σ, indiv_ranadd, indiv_ranmul)
 end
 
 function extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVector};
@@ -178,34 +213,60 @@ function extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVect
     #k = first(keys_opt) # k = keys_opt[2]
     popt_mean = ComponentVector(;
         ((k, mean(getproperty.(popt_indiv_flat1, k))) for k in keys_opt)...)
-    fixed = popt_mean[keys_p.fixed]
-    random = popt_mean[keys_p.random]
+    fixed = subvector(popt_mean, keys_p.fixed)
+    ranadd = subvector(popt_mean, keys_p.ranadd)
+    ranmul = subvector(popt_mean, keys_p.ranmul)
     ax_site = Axis(indiv_ids)
     #@show indiv_ids, ax_site
     indiv = ComponentMatrix(hcat((popt[keys_p.indiv] for popt in popt_indiv_flat1)...),
         axis_paropt_flat1(psets.indiv), ax_site)
     #popt = first(popt_indiv_flat1)
-    indiv_random = ComponentMatrix(hcat((popt[keys_p.random] ./ popt_mean[keys_p.random] for popt in popt_indiv_flat1)...),
-        axis_paropt_flat1(psets.random), ax_site)
-    (; fixed, random, indiv, indiv_random)
+    indiv_ranadd = ComponentMatrix(
+        hcat((popt[keys_p.ranadd] .- popt_mean[keys_p.ranadd] for popt in popt_indiv_flat1)...),
+        axis_paropt_flat1(psets.ranadd), ax_site)
+    indiv_ranmul = ComponentMatrix(
+        hcat((popt[keys_p.ranmul] ./ popt_mean[keys_p.ranmul] for popt in popt_indiv_flat1)...),
+        axis_paropt_flat1(psets.ranmul), ax_site)
+    (; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul)
 end
 
-function get_init_mixedmodel(; fixed::ComponentVector, random::ComponentVector,
+"""
+Get a ComponentVector of only keys in cv. Takes care of special case of empty
+keys, where it returns a ComponentVector rather than a plain Vector.
+"""
+function subvector(cv::ComponentVector, keys)
+    isempty(keys) ? ComponentVector{eltype(cv)}() : cv[keys]
+end
+
+function get_init_mixedmodel(;
+        fixed::ComponentVector, ranadd::ComponentVector, ranmul::ComponentVector,
         indiv::ComponentMatrix, priors_σ,
-        indiv_random = missing)
-    random_σ = ComponentVector(;
-        ((k, mean(priors_σ[k])) for k in keys(random))...)
-    if ismissing(indiv_random)
+        indiv_ranadd = missing, indiv_ranmul = missing
+)
+    ranadd_σ = ComponentVector(;
+        ((k, mean(priors_σ[k])) for k in keys(ranadd))...)
+    if ismissing(indiv_ranadd)
         n_indiv = size(indiv, 2)
-        ax_random = first(getaxes(random))
+        ax_ranadd = first(getaxes(ranadd))
         ax_site = getaxes(indiv)[2]
-        indiv_random = ComponentMatrix(fill(1.0, length(random), n_indiv),
-            ax_random, ax_site)
+        indiv_ranadd = ComponentMatrix(fill(0.0, length(ranadd), n_indiv),
+            ax_ranadd, ax_site)
     end
-    ComponentVector(; fixed, random,
-        random_σ,
+    ranmul_σ = ComponentVector(;
+        ((k, mean(priors_σ[k])) for k in keys(ranmul))...)
+    if ismissing(indiv_ranmul)
+        n_indiv = size(indiv, 2)
+        ax_ranmul = first(getaxes(ranmul))
+        ax_site = getaxes(indiv)[2]
+        indiv_ranmul = ComponentMatrix(fill(1.0, length(ranmul), n_indiv),
+            ax_ranmul, ax_site)
+    end
+    ComponentVector(; fixed, ranadd, ranmul,
+        ranadd_σ, ranmul_σ,
         indiv = flatten_cm(indiv),
-        indiv_random = flatten_cm(indiv_random),)
+        indiv_ranadd = flatten_cm(indiv_ranadd),
+        indiv_ranmul = flatten_cm(indiv_ranmul)
+    )
 end
 
 """
