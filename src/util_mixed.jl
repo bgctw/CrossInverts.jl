@@ -252,18 +252,22 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
     priors_ranmul = dict_to_cv(mixed_keys.ranmul, priors_random_dict)
     _resample_random = (problem) -> begin
         ranadd = get_paropt_labeled(psets.ranadd, problem)
-        a = ranadd .+ sample_ranaddef(rng, priors_ranadd)
+        ranadd_offset = sample_ranaddef(rng, priors_ranadd)
+        a = ranadd .+ ranadd_offset
         probo = remake(problem, a, psets.ranadd)
         ranmul = get_paropt_labeled(psets.ranmul, problem)
-        r = ranmul .* sample_ranmulef(rng, priors_ranmul)
+        ranmul_factor = sample_ranmulef(rng, priors_ranmul)
+        r = ranmul .* ranmul_factor
         probo = remake(probo, r, psets.ranmul)
         (get_state_labeled(psets.popt, probo),
             get_par_labeled(psets.popt, probo),
-            get_paropt_labeled(psets.popt, probo))
+            get_paropt_labeled(psets.popt, probo),
+            ranadd_offset,
+            ranmul_factor)
     end
     #tmp = _resample_random(df.problem[1]); length(tmp)
     DataFrames.transform!(df,
-        [:problem] => DataFrames.ByRow(_resample_random) => [:u0, :p, :paropt])
+        [:problem] => DataFrames.ByRow(_resample_random) => [:u0, :p, :paropt, :indiv_ranadd, :indiv_ranmul])
     prob1 = df.problem[1]
     # for the first row remove the random effects modifications and stick to the mean
     df[1, [:u0, :p]] .= (get_state_labeled(psets.popt, prob1),

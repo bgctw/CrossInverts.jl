@@ -79,6 +79,13 @@ function get_case_mixed_keys(::SampleSystemStaticCase; scenario)
             ranmul = (),
             indiv = ())
     end
+    if :single_ranadd ∈ scenario
+        mixed_keys = (;
+            fixed = (),
+            ranadd = (:b1,),
+            ranmul = (),
+            indiv = ())
+    end
     if :all_ranmul ∈ scenario
         mixed_keys = (;
             fixed = (),
@@ -95,10 +102,14 @@ function get_case_priors_dict(
     dln = fit(LogNormal, 1.0, @qp_uu(5.0))
     dd = Dict{Symbol, Distribution}(:a => dn, :b1 => dn, :b2 => dln, :b3 => dn)
     if :all_ranadd ∈ scenario
-        #dd = Dict{Symbol, Distribution}([:b1, :b2, :b3] .=> dln)
         dd = Dict{Symbol, Distribution}(
             :b1 => fit(Normal, 1.0, @qp_uu(5.0)),
             :b2 => fit(Normal, 2.0, @qp_uu(5.0))
+        )
+    end
+    if :single_ranadd ∈ scenario    
+        dd = Dict{Symbol, Distribution}(
+            :b1 => fit(Normal, 1.0, @qp_uu(5.0)),
         )
     end
     if :all_ranmul ∈ scenario
@@ -115,8 +126,9 @@ function get_case_priors_random_dict(
         ::SampleSystemStaticCase; scenario = NTuple{0, Symbol}())
     #d_exp = Distributions.AffineDistribution(1, 1, Exponential(0.1))
     # prior in σ rather than σstar
-    d_exp = Exponential(log(1.05))
-    dd = Dict{Symbol, Distribution}([:a, :b1, :b2, :b3] .=> d_exp)
+    d_exp_lognorm = Exponential(log(1.05))
+    d_exp_norm = Exponential(0.2)
+    dd = Dict{Symbol, Distribution}([:a, :b1, :b2, :b3] .=> d_exp_norm)
     dd
 end
 
@@ -126,23 +138,38 @@ function get_case_obs_uncertainty_dist_type(::SampleSystemStaticCase, stream;
     dtypes[stream]
 end
 
+function simulate_case_indivdata(inv_case::SampleSystemStaticCase; scenario)
+    unc_par = Dict(:y => PDiagMat(fill(0.2, 12)))
+    (; indivdata, p_indiv, d_noise) = simulate_indivdata(; 
+        inv_case, scenario, unc_par, rng=StableRNG(0815))
+end
+
 function get_case_indivdata(
         inv_case::SampleSystemStaticCase, indiv_id; scenario = NTuple{0, Symbol}())
-    unc_par = Dict(:y => PDiagMat(fill(0.2, 12)))
-    (; indivdata, p_indiv) = simulate_indivdata(; inv_case, scenario, unc_par)
+    (; indivdata, p_indiv) = simulate_case_indivdata(inv_case; scenario)
     indivdata[indiv_id]
 end
 
 function get_case_u0p(inv_case::SampleSystemStaticCase; scenario)
-    df = DataFrame()
-    if :all_ranadd ∈ scenario
+    df = DataFrame(indiv_id = Symbol[])
+    if (:all_ranadd ∈ scenario) | (:all_ranmul ∈ scenario) 
         # set b3 to 0
         indiv_ids = get_case_indiv_ids(inv_case; scenario)
         ni = length(indiv_ids)
         df = DataFrame(;
             indiv_id = indiv_ids,
-            u0 = fill(CA.ComponentVector(),ni),
-            p = fill(CA.ComponentVector(b3 = 0.0,),ni),
+            u0 = fill(CA.ComponentVector(), ni),
+            p = fill(CA.ComponentVector(b3 = 0.0), ni)
+        )
+    end
+    if (:single_ranmul ∈ scenario) | (:single_ranadd ∈ scenario)
+        # set b2 and b3 to 0
+        indiv_ids = get_case_indiv_ids(inv_case; scenario)
+        ni = length(indiv_ids)
+        df = DataFrame(;
+            indiv_id = indiv_ids,
+            u0 = fill(CA.ComponentVector(), ni),
+            p = fill(CA.ComponentVector(b2 = 0.0, b3 = 0.0), ni)
         )
     end
     df

@@ -269,6 +269,6 @@ function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng 
         end
         (; zip(streams, tmp)...)
     end
-    res = (;indivdata=(; zip(p_indiv.indiv_id, obs_tuple)...), p_indiv)
+    res = (;indivdata=(; zip(p_indiv.indiv_id, obs_tuple)...), p_indiv, d_noise)
 end
 

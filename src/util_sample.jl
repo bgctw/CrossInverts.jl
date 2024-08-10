@@ -203,6 +203,12 @@ function get_init_mixedmodel(
         fixed, ranadd, ranmul, indiv, priors_σ, indiv_ranadd, indiv_ranmul)
 end
 
+"""
+    extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVector};
+    
+Extract mixed effects in the format supplied to sim_obs from parameters
+of individuals.
+"""
 function extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVector};
         indiv_ids = ((Symbol("i$i") for i in 1:length(popt_indiv))...,))
     #Main.@infiltrate_main
@@ -237,6 +243,34 @@ function subvector(cv::ComponentVector, keys)
     isempty(keys) ? ComponentVector{eltype(cv)}() : cv[keys]
 end
 
+"""
+    extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0=nothing
+    
+Extract mixed effects in the format supplied to sim_obs linear sample.
+May provide the axis with template ComponentVector `sample_0`.
+"""
+function extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0=nothing)
+    sl = sample_i isa ComponentVector ? sample_i :
+         MTKHelpers.attach_axis(sample_i, CA.getaxes(sample0)[1])
+    ax_indiv = isempty(sl.indiv) ? CA.FlatAxis() : first(CA.getaxes(sl.indiv))
+    ax_ranadd = isempty(sl.ranadd) ? CA.FlatAxis() : first(CA.getaxes(sl.ranadd))
+    ax_ranmul = isempty(sl.ranmul) ? CA.FlatAxis() : first(CA.getaxes(sl.ranmul))
+    ax_site = first(CA.getaxes(sl.indiv))
+    n_site = length(keys(sl.indiv))
+    mixed_i = (; sl.fixed, sl.ranadd, sl.ranmul, #sl.ranadd_σ, sl.ranmul_σ,
+        indiv = CA.ComponentMatrix(
+            reshape(sl.indiv, trunc(Int, length(sl.indiv) / n_site), n_site),
+            ax_indiv, ax_site),
+        indiv_ranadd = CA.ComponentMatrix(
+            reshape(sl.indiv_ranadd, trunc(Int, length(sl.indiv_ranadd) / n_site), n_site), ax_ranadd, ax_site),
+        indiv_ranmul = CA.ComponentMatrix(
+            reshape(sl.indiv_ranmul, trunc(Int, length(sl.indiv_ranmul) / n_site), n_site), ax_ranmul, ax_site))
+end
+
+
+"""
+inverse of extract_mixed_effects(samplei)
+"""
 function get_init_mixedmodel(;
         fixed::ComponentVector, ranadd::ComponentVector, ranmul::ComponentVector,
         indiv::ComponentMatrix, priors_σ,
