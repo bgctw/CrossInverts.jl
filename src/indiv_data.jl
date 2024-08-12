@@ -243,7 +243,6 @@ function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng 
         #x2 = get_state_labeled(pset, probo).x2
         #get_par_labeled(pset, probo)
         sol = solve(probo, solver, saveat = t)
-        #Main.@infiltrate_main
         #sol[[sv.x[1], sv.dec2]]
         #sol[_dict_nums[:sv₊dec2]]
         #stream = last(collect(streams)) #stream = first(streams)

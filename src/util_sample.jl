@@ -211,7 +211,6 @@ of individuals.
 """
 function extract_mixed_effects(psets, popt_indiv::AbstractVector{<:ComponentVector};
         indiv_ids = ((Symbol("i$i") for i in 1:length(popt_indiv))...,))
-    #Main.@infiltrate_main
     popt_indiv_flat1 = flatten1.(popt_indiv)
     keys_p = map(pset -> keys(axis_paropt_flat1(pset)), psets)
     keys_opt = MTKHelpers.tuplejoin(keys_p...)

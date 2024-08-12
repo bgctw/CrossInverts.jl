@@ -21,6 +21,8 @@ const GROUP = get(ENV, "GROUP", "All") # defined in in CI.yml
         @time @safetestset "test_util_mixed" include("test_util_mixed.jl")
         #@safetestset "Tests" include("test/test_extract_group.jl")
         @time @safetestset "test_extract_group" include("test_extract_group.jl")
+        #@safetestset "Tests" include("test/test_ranadd.jl")
+        @time @safetestset "test_ranadd" include("test_ranadd.jl")
     end
     if GROUP == "All" || GROUP == "JET"
         #@safetestset "Tests" include("test/test_JET.jl")

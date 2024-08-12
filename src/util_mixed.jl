@@ -270,8 +270,11 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
         [:problem] => DataFrames.ByRow(_resample_random) => [:u0, :p, :paropt, :indiv_ranadd, :indiv_ranmul])
     prob1 = df.problem[1]
     # for the first row remove the random effects modifications and stick to the mean
-    df[1, [:u0, :p]] .= (get_state_labeled(psets.popt, prob1),
-        get_par_labeled(psets.popt, prob1))
+    # of the original problem
+    df[1, [:u0, :p, :paropt]] .= (get_state_labeled(psets.popt, prob1),
+        get_par_labeled(psets.popt, prob1), get_paropt_labeled(psets.popt, prob1))
+    df[1, :indiv_ranadd] .= 0.0
+    df[1, :indiv_ranmul] .= 1.0
     df[:, Not(:problem)]
 end
 
