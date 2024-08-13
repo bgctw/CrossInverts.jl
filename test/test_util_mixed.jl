@@ -67,7 +67,7 @@ tmpf = () -> begin
         inv_case; scenario, system_u0_p_default)
 end
 
-(; system, indiv_info, pop_info) = setup_inversion(inv_case; scenario)
+(; system, indiv_info, pop_info) = setup_inversion(inv_case; scenario);
 
 (; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul) = pop_info.mixed
 (; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
@@ -76,6 +76,21 @@ end
     @test problemupdater isa ProblemUpdater
     @test problemupdater.pget.source_keys == (:sv₊i,)
 end;
+
+@testset "simulate_indivdata" begin
+    unc_par = Dict(
+        :sv₊dec2 => 1.1,
+        :sv₊x => convert(Matrix, PDiagMat(log.([1.1, 1.1]))),
+        :sv₊b1obs => 0.5)
+    t_each = [0.2, 0.4, 1.0, 2.0]
+    t_stream_dict = Dict(k => t_each for k in keys(unc_par))
+    t_stream_dict[:sv₊b1obs] = [0.1]
+    res = simulate_indivdata(;inv_case, scenario, unc_par, t_stream_dict,
+        system_u0_p_default=pop_info.system_u0_p_default);
+#     #clipboard(res.indivdata) # not on slurm
+#     res.indivdata  # copy from terminal and paste into get_case_indivdata
+end
+
 
 @testset "setup_psets_mixed" begin
     psets = pop_info.psets
@@ -199,6 +214,30 @@ end;
     τi1s = get(chn_rti, Symbol(":sv₊τ[:A]"))[1]
     @test τi1s == τ .* τi1
 end
+
+@testset "extract_mixed_effects" begin
+    me = CP.extract_mixed_effects(pop_info.sample0)
+    #@test all([me[k] == pop_info.mixed[k] for k in keys(pop_info.mixed)])
+    # me has a reshaped axis, while mixed has plain axes -> not fully equal
+    # but can test numbers and shap
+    @test all([vec(me[k]) == vec(pop_info.mixed[k]) for k in keys(pop_info.mixed)])
+    @test all([size(me[k]) == size(pop_info.mixed[k]) for k in keys(pop_info.mixed)])
+    #
+    priors_σ = CA.ComponentVector(;pop_info.priors_pop.ranadd_σ..., pop_info.priors_pop.ranmul_σ...)
+    sample_i = CP.get_init_mixedmodel(;me..., priors_σ)
+    @test all(sample_i .== pop_info.sample0)
+    # TODO
+    # names of parameters in axes missing?
+    sample_i.indiv
+    pop_info.sample0.indiv
+    #
+    # missing indiv_ranadd case - fill with 0
+    sample_i2 = CP.get_init_mixedmodel(;me[(:fixed, :ranadd, :ranmul, :indiv)]..., priors_σ)
+    @test all([size(sample_i2[k]) == size(sample_i2[k]) for k in keys(sample_i2)])
+    @test all(sample_i2.indiv_ranadd .== 0.0)
+    @test all(sample_i2.indiv_ranmul .== 1.0)
+end
+
 
 
 tmpf = () -> begin

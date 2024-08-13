@@ -1,3 +1,4 @@
+# many lines not covered by tests, because used in dev/ranadd/*.jl
 struct SampleSystemStaticCase <: AbstractCrossInversionCase end
 
 function samplesystem_static(; name, a = 1.0, b1 = 1.0, b2 = 2.0, b3 = 3.0, n_rec = 12)
@@ -138,8 +139,9 @@ end
 function simulate_case_indivdata(inv_case::SampleSystemStaticCase; scenario)
     n_rec = get_nrec_staticcase(;scenario) 
     unc_par = Dict(:y => PDiagMat(fill(0.2, n_rec)))
+    t_each = [0.0]
     (; indivdata, p_indiv, d_noise) = simulate_indivdata(; 
-        inv_case, scenario, unc_par, rng=StableRNG(0815))
+        inv_case, scenario, unc_par, t_each, rng=StableRNG(0815))
 end
 
 function get_case_indivdata(

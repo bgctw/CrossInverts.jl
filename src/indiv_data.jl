@@ -133,7 +133,7 @@ function df_from_paramsModeUpperRows(paramsModeUpperRows)
         dist = dist0 = fit(dType, mode, @qp_uu(upper), Val(:mode))
     end
     DataFrames.transform!(df_dist, Cols(:par, :dType, :mode, :upper) => ByRow(f1v) => :dist)
-    df_dist
+    return(df_dist)
 end
 
 """
@@ -197,19 +197,28 @@ Uncertainty parameters of different streams are given with Dictionary
 The type of distribution is obtained from 
 `get_case_obs_uncertainty_dist_type(inv_case, s; scenario)`.
 
+The times are either given as a single vector with argument `t_each` or
+a Dictionary of vectors for each stream with `t_stream_dict`.
+
 For Normal and LogNormal this is the σ standard deviation parameter.
 For MvNormal and MvLogNormal this is the Σ Covariance matrix.
 Typical LogNormal is `convert(Matrix, PDiagMat(log.([1.1, 1.1])))`.
 
 """
-function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng = StableRNG(123))
+function simulate_indivdata(;inv_case, scenario, unc_par, 
+    t_each = missing, 
+    t_stream_dict = Dict(k => t_each for k in keys(unc_par)),
+    solver = Tsit5(), 
+    rng = StableRNG(123),
+    system_u0_p_default = get_case_inverted_system(inv_case; scenario),
+    )
     # using and setup in test_util_mixed
-    system_u0_p_default = get_case_inverted_system(inv_case; scenario)
     (;system, u0_default, p_default) = system_u0_p_default
     defaults(system)
     #indiv_ids = get_case_indiv_ids(inv_case; scenario)
-    (; p_indiv, ranadd_dist_cv, ranmul_dist_cv) = get_indiv_parameters_from_priors(
+    res_indiv = get_indiv_parameters_from_priors(
         inv_case; scenario, system_u0_p_default, rng)
+    (; p_indiv, ranadd_dist_cv, ranmul_dist_cv) = res_indiv
     # p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
     #     system_u0_p_default = (; system,
     #         u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
@@ -217,8 +226,11 @@ function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng 
     # other usings from test_util_mixed
     _dict_nums = get_system_symbol_dict(system)
     # setup a problem, numbers do not matter, because set below from p_indiv
-    t = [0.0]
-    problem = ODEProblem(system, system_num_dict(u0_default, _dict_nums), (0.0, maximum(t)), system_num_dict(p_default, _dict_nums))
+    ts = sort(union(values(t_stream_dict)...))
+    # use u0 and p from first individual, overriden below
+    problem = ODEProblem(
+        system, system_num_dict(p_indiv.u0[1], _dict_nums), (minimum(ts), maximum(ts)), 
+        system_num_dict(p_indiv.p[1], _dict_nums))
     #indiv_id = first(keys(p_indiv))
     streams = collect(keys(unc_par))
     dtypes = Dict(s => get_case_obs_uncertainty_dist_type(inv_case, s; scenario)
@@ -243,12 +255,14 @@ function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng 
         #x1 = get_state_labeled(pset, probo).x1
         #x2 = get_state_labeled(pset, probo).x2
         #get_par_labeled(pset, probo)
-        sol = solve(probo, solver, saveat = t)
+        sol = solve(probo, solver, saveat = ts)
         #sol[[sv.x[1], sv.dec2]]
         #sol[_dict_nums[:sv₊dec2]]
         #stream = last(collect(streams)) #stream = first(streams)
         tmp = map(streams) do stream
-            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])]
+            t = t_stream_dict[stream]
+            _it = [ti ∈ t for ti in ts]
+            obs_true = sol[Symbolics.scalarize(_dict_nums[stream])][_it]
             n_obs = length(obs_true)
             obs_unc = fill(unc_par[stream], n_obs)  # may be different for each obs
             noise = rand(rng, d_noise[stream], n_obs)

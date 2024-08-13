@@ -60,7 +60,7 @@ function setup_inversion(inv_case::AbstractCrossInversionCase;
     # (; pop_info, indiv_info) = setup_tools_mixed(indiv_info; 
     #     inv_case, scenario, system_u0_p_default, mixed_keys)
     pop_info = setup_tools_mixed(indiv_info; inv_case, scenario, system, psets)
-    pop_info = (; mixed_keys, indiv_ids, pop_info...)
+    pop_info = (; mixed_keys, indiv_ids, system_u0_p_default, pop_info...)
     (; system, pop_info, indiv_info)
 end
 
@@ -292,14 +292,14 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
     (;p_indiv = df[:, Not(:problem)], ranadd_dist_cv, ranmul_dist_cv)
 end
 
-function check_equal_across_indiv(kc, mixed_indiv)
-    tmp = ComponentMatrix(hcat((c[kc] for c in mixed_indiv)...),
-        first(getaxes(mixed_indiv[1][kc])), FlatAxis())
-    rows_cols_equal = map(x -> all(x .== first(x)), eachrow(tmp))
-    all(rows_cols_equal) && return ()
-    @warn("Expected $kc effects priors to be equal across individuals, "*
-    "but means differed in rows $(findall(rows_cols_equal)): $(tmp)")
-end
+# function check_equal_across_indiv(kc, mixed_indiv)
+#     tmp = ComponentMatrix(hcat((c[kc] for c in mixed_indiv)...),
+#         first(getaxes(mixed_indiv[1][kc])), FlatAxis())
+#     rows_cols_equal = map(x -> all(x .== first(x)), eachrow(tmp))
+#     all(rows_cols_equal) && return ()
+#     @warn("Expected $kc effects priors to be equal across individuals, "*
+#     "but means differed in rows $(findall(rows_cols_equal)): $(tmp)")
+# end
 
 function get_priors_dict_indiv(inv_case, indiv_ids; scenario)
     Dict(id => get_case_priors_dict(inv_case, id; scenario) for

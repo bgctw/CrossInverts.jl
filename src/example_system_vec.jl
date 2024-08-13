@@ -25,7 +25,7 @@ end
 function get_case_inverted_system(::SampleSystemVecCase; scenario)
     @named sv = samplesystem_vec()
     @named system = embed_system(sv)
-    u0_default = ComponentVector()
+    u0_default = ComponentVector{Float64}()
     p_default = ComponentVector(sv₊i2 = 0.1)
     (; system, u0_default, p_default)
 end
@@ -64,7 +64,7 @@ function get_case_priors_dict(
     # dd[:sv₊x] = product_distribution(dd[:sv₊x_1], dd[:sv₊x_2])
     dd[:sv₊p] = product_MvLogNormal(fill(dist_p0, 3)...)
     dd[:sv₊x] = product_MvLogNormal(dd[:sv₊x_1], dd[:sv₊x_2])
-    dd
+    return(dd)
 end
 
 function product_MvLogNormal(comp...)
@@ -84,7 +84,7 @@ function get_case_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0,
     #dd[:sv₊x] = Distributions.Product(fill(d_exp, 2))
     # d_lognorm = fit(LogNormal, moments(d_exp))
     # dd[:sv₊x] = product_MvLogNormal(d_lognorm,d_lognorm)
-    dd
+    return(dd)
 end
 
 function get_case_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
@@ -94,19 +94,8 @@ function get_case_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
     dtypes[stream]
 end
 
-gen_site_data_vec = () -> begin
-    inv_case = SampleSystemVecCase()
-    scenario = NTuple{0, Symbol}()
-    unc_par = Dict(
-        :sv₊dec2 => 1.1,
-        :sv₊x => convert(Matrix, PDiagMat(log.([1.1, 1.1]))),
-        :sv₊b1obs => 0.5)
-    res = simulate_indivdata(;inv_case, scenario, unc_par)
-    #clipboard(res) # not on slurm
-    res  # copy from terminal and paste into get_case_indivdata
-end
-
 function get_case_indivdata(::SampleSystemVecCase, indiv_id; scenario = NTuple{0, Symbol}())
+    # generated as in test_indivdata_vec.jl testset simulate_indivdata
     data = (
         A = (
             sv₊x = (t = [0.2, 0.4, 1.0, 2.0],

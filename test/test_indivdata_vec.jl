@@ -5,6 +5,8 @@ using MTKHelpers
 using OrdinaryDiffEq, ModelingToolkit
 using ComponentArrays: ComponentArrays as CA
 using Distributions
+using DataFrames: DataFrames
+using PDMats
 #using ComponentArrays
 
 @named sv = CP.samplesystem_vec()
@@ -85,4 +87,16 @@ end
     @test eltype(priors_pop.ranmul_σ) <: Distribution
     @test keys(priors_pop.ranmul_σ) == keys(ranmul)
 end;
+
+struct EmptyInvCase <: AbstractCrossInversionCase end
+
+@testset "default implementations of AbstractCrossInversionCase" begin
+    inv_case_empty = EmptyInvCase()
+    @test get_case_problemupdater(inv_case_empty; system=sys, scenario) isa NullProblemUpdater
+    df = get_case_u0p(inv_case_empty; scenario) 
+    @test DataFrames.nrow(df) == 0
+    @test all( ("indiv_id","u0","p") .∈ Ref(names(df)))
+end;
+
+
 

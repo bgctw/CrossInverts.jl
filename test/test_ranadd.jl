@@ -105,3 +105,14 @@ end;
     # with more samples should converge towards     
 end;
 
+@testset "test empty ranadd" begin
+    scenario_e = (:all_ranmul,)
+    #res_e = setup_inversion(inv_case; scenario = scenario_e);
+    res_s = CP.simulate_case_indivdata(inv_case; scenario = scenario_e)
+    @test isempty(res_s.p_indiv.indiv_ranadd[1])
+    @test !isempty(res_s.p_indiv.indiv_ranmul[1])
+end
+
+
+
+
