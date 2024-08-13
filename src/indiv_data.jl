@@ -192,7 +192,7 @@ end
 """
 Generate observations and uncertainties according to priors
 
-Uncertainty parameters of differnt streams are given with Dictionary 
+Uncertainty parameters of different streams are given with Dictionary 
 `unc_par`. 
 The type of distribution is obtained from 
 `get_case_obs_uncertainty_dist_type(inv_case, s; scenario)`.
