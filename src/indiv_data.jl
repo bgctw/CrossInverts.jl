@@ -227,7 +227,7 @@ function simulate_indivdata(;inv_case, scenario, unc_par,
     _dict_nums = get_system_symbol_dict(system)
     # setup a problem, numbers do not matter, because set below from p_indiv
     ts = sort(union(values(t_stream_dict)...))
-    # use u0 and p from first individual, overriden below
+    # use u0 and p from first individual, overridden below
     problem = ODEProblem(
         system, system_num_dict(p_indiv.u0[1], _dict_nums), (minimum(ts), maximum(ts)), 
         system_num_dict(p_indiv.p[1], _dict_nums))

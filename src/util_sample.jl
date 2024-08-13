@@ -1,4 +1,4 @@
-# Several Lines withing Turing.@model are modified by the macro and missingn in codecov - ok
+# Several Lines within Turing.@model are modified by the macro and missingn in codecov - ok
 
 """
     function gen_model_cross(;
