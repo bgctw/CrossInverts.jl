@@ -1,3 +1,5 @@
+# codecov wrongly reports line in fLogger in closure, that actually is applied during solution
+
 """
     gen_sim_sols_probs(; tools, psets, problemupdater, 
         solver = AutoTsit5(Rodas5()), kwargs_gen...)

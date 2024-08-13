@@ -210,7 +210,7 @@ C,"(sv₊x = [2.010654503237803, 2.0510192980037196])","(sv₊τ = 1.40343219122
         :p => ByRow(cv -> cv[keys_p_noi]) => :p)
     # testing no information for whole individuals
     subset!(df, :indiv_id => ByRow(≠(:C)))
-    df
+    return(df)
 end
 function parse_nested_tuple(s)
     # insert a comma before each closing bracket if comma is not there yet
