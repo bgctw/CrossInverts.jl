@@ -80,46 +80,38 @@ function gen_sim_sols(sim_sols_probs)
     end
 end
 
-function sample_random(inv_case::AbstractCrossInversionCase, ranadd, ranmul; scenario,
-        rng::AbstractRNG = Random.default_rng())
-    priors_random_dict = get_case_priors_random_dict(inv_case; scenario)
-    priors_random = dict_to_cv(keys(ranmul), priors_random_dict)
-    (; ranadd = ranmul .+ sample_ranaddef(rng, priors_random),
-        ranmul = ranmul .* sample_ranmulef(rng, priors_random)) 
+function sample_random_σ(rng, effect_keys, priors_random_dict)
+    # use generator instead of map, because effect_keys is a NamedTuple
+    _gen = ((kp, rand(rng, priors_random_dict[kp])) for kp in effect_keys)
+    CA.ComponentVector(; _gen...)
 end
 
-function sample_ranaddef(rng, priors_random)
-    # Normal around 0
-    gen = (begin
-               dist_sigma = priors_random[kp]
-               #σ = mean(dist_sigma)
-               σ = rand(rng, dist_sigma)
-               #dim_d = length(dist_sigma)
-               len_σ = length(σ)
-               dist = (len_σ == 1) ?
-                      fit_mean_Σ(Normal, 0, σ) :
-                      fit_mean_Σ(Normal, fill(0, len_σ), PDiagMat(σ .^ 2))
-               r = rand(rng, dist)
-               (kp, r)
-           end
-    for kp in keys(priors_random))
-    ComponentVector(; gen...)
+function get_ranadd_dist(ranadd_σ)
+    map(ranadd_σ) do σ
+        len_σ = length(σ)
+        dist = (len_σ == 1) ?
+               fit_mean_Σ(Normal, 0, σ) :
+               fit_mean_Σ(Normal, fill(0, len_σ), PDiagMat(σ .^ 2))
+    end
 end
 
-function sample_ranmulef(rng, priors_random)
-    # LogNormal around 1
-    gen = (begin
-               dist_sigma = priors_random[kp]
-               #σ = mean(dist_sigma)
-               σ = rand(rng, dist_sigma)
-               #dim_d = length(dist_sigma)
-               len_σ = length(σ)
-               dist = (len_σ == 1) ?
-                      fit_mean_Σ(LogNormal, 1, σ) :
-                      fit_mean_Σ(MvLogNormal, fill(1, len_σ), PDiagMat(σ .^ 2))
-               r = rand(rng, dist)
-               (kp, r)
-           end
-    for kp in keys(priors_random))
-    ComponentVector(; gen...)
+function get_ranmul_dist(ranmul_σ)
+    map(ranmul_σ) do σ
+        len_σ = length(σ)
+        dist = (len_σ == 1) ?
+               fit_mean_Σ(LogNormal, 1, σ) :
+               fit_mean_Σ(MvLogNormal, fill(1, len_σ), PDiagMat(σ .^ 2))
+    end
 end
+
+# Lean from failure: defined function rand in module CrossInverts
+# This caused calls to rand (from )
+# """
+#     rand(rng::Random.AbstractRNG, dist_cp::ComponentVector{<:Distribution})
+
+# Sample a value from each Distribution in dist_cp.    
+# """
+# function rand(rng::Random.AbstractRNG, dist_cp::ComponentVector{<:Distribution})
+#     gen = ((kp, rand(rng, dist_cp[kp])) for kp in keys(dist_cp))
+#     ComponentVector(; gen...)
+# end

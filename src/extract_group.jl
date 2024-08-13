@@ -10,6 +10,7 @@ replaces first `[i]` by `[:(indiv_ids[i])]`.
 """
 function extract_group(chn::MCMCChains.Chains, group::Symbol) 
   _names = string.(MCMCChains.namesingroup(chn, group))
+  isempty(_names) && return(MCMCChains.group(chn, group))
   _compstr = string(group)
   _dict = Dict(_names .=> replace.(_names , Regex("$_compstr\\[(.+?)\\]") => s"\1"))
   tmp = @chain chn begin
@@ -28,6 +29,7 @@ end
 
 function replace_indiv_ids(chn::MCMCChains.Chains, indiv_ids)
   _names = string.(names(chn))
+  (isempty(_names) || isempty(indiv_ids)) && return(chn)
   _pat = Regex.("\\[".*string.(1:length(indiv_ids)).*"\\]") .=> "[:" .* string.(indiv_ids) .* "]"
   _dict = Dict(_names .=> replace.(_names, _pat...; count=1))
   MCMCChains.replacenames(chn, _dict)
@@ -46,14 +48,14 @@ It add the mean ranadd and the individual additive ranadd effect.
 """
 function compute_indiv_random(chn::MCMCChains.Chains, indiv_ids) 
   _means = extract_group(chn, :ranmul)
-  _rm = extract_group(chn, Val(:indiv_ranmul), indiv_ids)
+  _rm = extract_group(chn, :indiv_ranmul, indiv_ids)
   _means_arr = cat(Array(_means, append_chains=false)..., dims=3)
   _rm_arr = cat(Array(_rm, append_chains=false)..., dims=3)
   _means_arr_filled = hcat(fill(_means_arr, length(indiv_ids))...)
   _arr_mul = _means_arr_filled .* _rm_arr
   #
   _means = extract_group(chn, :ranadd)
-  _ra = extract_group(chn, Val(:indiv_ranadd), indiv_ids)
+  _ra = extract_group(chn, :indiv_ranadd, indiv_ids)
   _means_arr = cat(Array(_means, append_chains=false)..., dims=3)
   _ra_arr = cat(Array(_ra, append_chains=false)..., dims=3)
   _means_arr_filled = hcat(fill(_means_arr, length(indiv_ids))...)

@@ -104,3 +104,4 @@ end;
     #SP.density(b1m) # distributed normally fine
     # with more samples should converge towards     
 end;
+

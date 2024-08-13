@@ -245,7 +245,7 @@ end
 """
     extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0=nothing
     
-Extract mixed effects in the format supplied to sim_obs linear sample.
+Extract mixed effects in the format supplied to sim_obs from linear sample.
 May provide the axis with template ComponentVector `sample_0`.
 """
 function extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0=nothing)

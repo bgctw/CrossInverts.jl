@@ -32,15 +32,15 @@ Returns a `NamedTuple` with entries: `(; system, pop_info, indiv_info)`
     - `indivdata`: as returned by get_case_indivdata
 """
 function setup_inversion(inv_case::AbstractCrossInversionCase;
-    scenario=NTuple{0,Symbol}(),
-    system_u0_p_default=get_case_inverted_system(inv_case; scenario)
+        scenario = NTuple{0, Symbol}(),
+        system_u0_p_default = get_case_inverted_system(inv_case; scenario)
 )
     #    pop_info = (;mixed, psets, problemupdater, priors_pop, sample0, effect_pos)
     (; system, u0_default, p_default) = system_u0_p_default
     mixed_keys = get_case_mixed_keys(inv_case; scenario)
     indiv_ids = get_case_indiv_ids(inv_case; scenario)
     priors_dicts = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
-    psets = setup_psets_mixed(mixed_keys; system=system_u0_p_default.system)
+    psets = setup_psets_mixed(mixed_keys; system = system_u0_p_default.system)
     #
     indivdata = [get_case_indivdata(inv_case, id; scenario) for id in indiv_ids]
     tspans = map(indivdata) do indivdata_i
@@ -56,7 +56,7 @@ function setup_inversion(inv_case::AbstractCrossInversionCase;
     tools = map(priors_indiv, problems, indivdata) do priors_indiv, problem, indivdata
         (; priors_indiv, problem, indivdata)
     end
-    indiv_info = DataFrame(indiv_id=collect(indiv_ids); u0, p, paropt, tools)
+    indiv_info = DataFrame(indiv_id = collect(indiv_ids); u0, p, paropt, tools)
     # (; pop_info, indiv_info) = setup_tools_mixed(indiv_info; 
     #     inv_case, scenario, system_u0_p_default, mixed_keys)
     pop_info = setup_tools_mixed(indiv_info; inv_case, scenario, system, psets)
@@ -65,19 +65,20 @@ function setup_inversion(inv_case::AbstractCrossInversionCase;
 end
 
 function setup_tools_mixed(indiv_info::DataFrame;
-    inv_case, scenario, system, psets
+        inv_case, scenario, system, psets
 )
     mixed = extract_mixed_effects(psets, indiv_info.paropt)
     priors_pop = setup_priors_pop(
         keys(mixed.fixed), keys(mixed.ranadd), keys(mixed.ranmul); inv_case, scenario)
     #vcat returns a plain vector, if types are different
-    priors_σ = ComponentVector(;zip(
-        vcat(keys(priors_pop.ranadd_σ)..., keys(priors_pop.ranmul_σ)...),
-        vcat(priors_pop.ranadd_σ, priors_pop.ranmul_σ), 
+    priors_σ = ComponentVector(;
+        zip(
+            vcat(keys(priors_pop.ranadd_σ)..., keys(priors_pop.ranmul_σ)...),
+            vcat(priors_pop.ranadd_σ, priors_pop.ranmul_σ)
         )...)
     sample0 = get_init_mixedmodel(psets,
         indiv_info.paropt, priors_σ;
-        indiv_ids=indiv_info.indiv_id)
+        indiv_ids = indiv_info.indiv_id)
     effect_pos = MTKHelpers.attach_axis(1:length(sample0), MTKHelpers._get_axis(sample0))
     problemupdater = get_case_problemupdater(inv_case; system, scenario)
     #
@@ -93,13 +94,13 @@ and another one for the union of all parameters.
 """
 function setup_psets_mixed(mixed_keys; system)
     gen = ((kc, ODEProblemParSetter(system, mixed_keys[kc])) for
-           kc in keys(mixed_keys))
+    kc in keys(mixed_keys))
     popt_keys = reduce((c, x) -> (c..., x...), mixed_keys)
     pset_popt = LoggingExtras.withlevel(Logging.Error) do
         # warning on states not ordered first - ok here
         ODEProblemParSetter(system, popt_keys)
     end
-    psets = (; gen..., popt=pset_popt)
+    psets = (; gen..., popt = pset_popt)
     return psets
 end
 
@@ -126,7 +127,7 @@ function mean_priors(; mixed_keys, priors_dict, system)
             priors_k = dict_to_cv(_keys, priors_dict)
             meandist2componentarray(priors_k)
         end
-        for (_comp, _keys) in pairs(mixed_keys)
+    for (_comp, _keys) in pairs(mixed_keys)
     )
     ntup = (; zip(keys(mixed_keys), gen)...)
     popt = vcat_statesfirst(ntup...; system)
@@ -142,16 +143,16 @@ Initial states and parameters are merged, i.e. overridden in the following order
 - value provided with indiv_u0p
 """
 function setup_indiv_problems(;
-    inv_case, scenario, tspans,
-    system_u0_p_default=get_case_inverted_system(inv_case; scenario),
-    indiv_ids=get_case_indiv_ids(inv_case; scenario),
-    indiv_u0p=get_case_u0p(inv_case; scenario),
-    priors_dicts=get_priors_dict_indiv(inv_case, indiv_ids; scenario)
+        inv_case, scenario, tspans,
+        system_u0_p_default = get_case_inverted_system(inv_case; scenario),
+        indiv_ids = get_case_indiv_ids(inv_case; scenario),
+        indiv_u0p = get_case_u0p(inv_case; scenario),
+        priors_dicts = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
 )
     (; system, u0_default, p_default) = system_u0_p_default
     # complete the u0p specification by adding empty ComponentVectors for missing indivs
     df_spec = subset(indiv_u0p, :indiv_id => ByRow(∈(indiv_ids)))
-    df = leftjoin(DataFrame(indiv_id=collect(indiv_ids)), df_spec, on=:indiv_id)
+    df = leftjoin(DataFrame(indiv_id = collect(indiv_ids)), df_spec, on = :indiv_id)
     DataFrames.transform!(
         df, [:u0, :p] .=> ByRow(x -> coalesce(x, ComponentVector())) .=> [:u0, :p])
     DataFrames.disallowmissing!(df)
@@ -169,8 +170,8 @@ function setup_indiv_problems(;
         p_priors = meandist2componentarray(priors_dict_p)
         u0p = ComponentVector(
             # merging to (priors merging to defaults)
-            state=ComponentVector(ComponentVector(u0_default; u0_priors...); u0...),
-            par=ComponentVector(ComponentVector(p_default; p_priors...); p...))
+            state = ComponentVector(ComponentVector(u0_default; u0_priors...); u0...),
+            par = ComponentVector(ComponentVector(p_default; p_priors...); p...))
         problem = ODEProblem(system, system_num_dict(u0p.state, sys_num_dict), tspan,
             system_num_dict(u0p.par, sys_num_dict))
     end
@@ -182,15 +183,15 @@ The `indiv` priors can be indiv_id-specific They are setup separately in
 `setup_inversion`.     
 """
 function setup_priors_pop(keys_fixed, keys_ranadd, keys_ranmul;
-    inv_case::AbstractCrossInversionCase, scenario,
-    priors_dict=get_case_priors_dict(inv_case, missing; scenario),
-    priors_random_dict=get_case_priors_random_dict(inv_case; scenario))
+        inv_case::AbstractCrossInversionCase, scenario,
+        priors_dict = get_case_priors_dict(inv_case, missing; scenario),
+        priors_random_dict = get_case_priors_random_dict(inv_case; scenario))
     (;
-        fixed=dict_to_cv(keys_fixed, priors_dict),
-        ranadd=dict_to_cv(keys_ranadd, priors_dict),
-        ranmul=dict_to_cv(keys_ranmul, priors_dict),
-        ranadd_σ=dict_to_cv(keys_ranadd, priors_random_dict),
-        ranmul_σ=dict_to_cv(keys_ranmul, priors_random_dict)
+        fixed = dict_to_cv(keys_fixed, priors_dict),
+        ranadd = dict_to_cv(keys_ranadd, priors_dict),
+        ranmul = dict_to_cv(keys_ranmul, priors_dict),
+        ranadd_σ = dict_to_cv(keys_ranadd, priors_random_dict),
+        ranmul_σ = dict_to_cv(keys_ranmul, priors_random_dict)
     )
 end
 
@@ -201,7 +202,7 @@ and return a new ComponentArray of means of each distribution.
 meandist2componentarray = function (priors)
     # need to first create several ComponentVectors and then reduce
     # otherwise map on mixing Scalars and Vectors yields eltype any
-    isempty(priors) && return(ComponentVector{Float64}())
+    isempty(priors) && return (ComponentVector{Float64}())
     @chain priors begin
         map(keys(_)) do k
             ComponentVector(NamedTuple{(k,)}(Ref(mean(_[k]))))
@@ -234,31 +235,43 @@ DataFrame with columns `indiv_id`, `u0` and `p`, with all states and parameters 
 given system as `ComponentVector` labelled by `get_state_labeled` and `get_par_labeled`.
 """
 function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
-    scenario=NTuple{0,Symbol}(),
-    indiv_ids=get_case_indiv_ids(inv_case; scenario),
-    mixed_keys=get_case_mixed_keys(inv_case; scenario),
-    system_u0_p_default=get_case_inverted_system(inv_case; scenario),
-    psets=setup_psets_mixed(mixed_keys; system=system_u0_p_default.system),
-    rng=StableRNG(234),
-    #priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario),
-    priors_random_dict=get_case_priors_random_dict(inv_case; scenario)
+        scenario = NTuple{0, Symbol}(),
+        indiv_ids = get_case_indiv_ids(inv_case; scenario),
+        mixed_keys = get_case_mixed_keys(inv_case; scenario),
+        system_u0_p_default = get_case_inverted_system(inv_case; scenario),
+        psets = setup_psets_mixed(mixed_keys; system = system_u0_p_default.system),
+        rng = StableRNG(234),
+        #priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario),
+        priors_random_dict = get_case_priors_random_dict(inv_case; scenario)
 )
-    tspans = fill((0.0, 0.0), length(indiv_ids))
+    n_indiv = length(indiv_ids)
+    tspans = fill((0.0, 0.0), n_indiv)
     df = DataFrame(
-        indiv_id=collect(indiv_ids),
-        problem=setup_indiv_problems(; inv_case, scenario, tspans, system_u0_p_default)
+        indiv_id = collect(indiv_ids),
+        problem = setup_indiv_problems(; inv_case, scenario, tspans, system_u0_p_default)
     )
-    priors_ranadd = dict_to_cv(mixed_keys.ranadd, priors_random_dict)
-    priors_ranmul = dict_to_cv(mixed_keys.ranmul, priors_random_dict)
+    # make sure to use the same distribution across all individuals
+    ranadd_dist_cv = get_ranadd_dist(
+        sample_random_σ(rng, mixed_keys.ranadd, priors_random_dict))
+    ranmul_dist_cv = get_ranmul_dist(
+        sample_random_σ(rng, mixed_keys.ranmul, priors_random_dict))
     _resample_random = (problem) -> begin
-        ranadd = get_paropt_labeled(psets.ranadd, problem)
-        ranadd_offset = sample_ranaddef(rng, priors_ranadd)
-        a = ranadd .+ ranadd_offset
-        probo = remake(problem, a, psets.ranadd)
-        ranmul = get_paropt_labeled(psets.ranmul, problem)
-        ranmul_factor = sample_ranmulef(rng, priors_ranmul)
-        r = ranmul .* ranmul_factor
-        probo = remake(probo, r, psets.ranmul)
+        if isempty(mixed_keys.ranadd)
+            ranadd_offset = ComponentVector()
+        else 
+            ranadd = get_paropt_labeled(psets.ranadd, problem)
+            ranadd_offset = map(dist -> Base.rand(rng, dist), ranadd_dist_cv)
+            a = ranadd .+ ranadd_offset
+            probo = remake(problem, a, psets.ranadd)
+        end
+        if isempty(mixed_keys.ranmul)
+            ranmul_factor = ComponentVector()
+        else
+            ranmul = get_paropt_labeled(psets.ranmul, problem)
+            ranmul_factor = map(dist -> Base.rand(rng, dist), ranmul_dist_cv)
+            r = ranmul .* ranmul_factor
+            probo = remake(problem, r, psets.ranmul)
+        end
         (get_state_labeled(psets.popt, probo),
             get_par_labeled(psets.popt, probo),
             get_paropt_labeled(psets.popt, probo),
@@ -267,7 +280,8 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
     end
     #tmp = _resample_random(df.problem[1]); length(tmp)
     DataFrames.transform!(df,
-        [:problem] => DataFrames.ByRow(_resample_random) => [:u0, :p, :paropt, :indiv_ranadd, :indiv_ranmul])
+        [:problem] => DataFrames.ByRow(_resample_random) => [
+            :u0, :p, :paropt, :indiv_ranadd, :indiv_ranmul])
     prob1 = df.problem[1]
     # for the first row remove the random effects modifications and stick to the mean
     # of the original problem
@@ -275,7 +289,7 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
         get_par_labeled(psets.popt, prob1), get_paropt_labeled(psets.popt, prob1))
     df[1, :indiv_ranadd] .= 0.0
     df[1, :indiv_ranmul] .= 1.0
-    df[:, Not(:problem)]
+    (;p_indiv = df[:, Not(:problem)], ranadd_dist_cv, ranmul_dist_cv)
 end
 
 function check_equal_across_indiv(kc, mixed_indiv)
@@ -283,11 +297,11 @@ function check_equal_across_indiv(kc, mixed_indiv)
         first(getaxes(mixed_indiv[1][kc])), FlatAxis())
     rows_cols_equal = map(x -> all(x .== first(x)), eachrow(tmp))
     all(rows_cols_equal) && return ()
-    @warn("Expected $kc effects priors to be equal across individuals, " *
-          "but means differed in rows $(findall(rows_cols_equal)): $(tmp)")
+    @warn("Expected $kc effects priors to be equal across individuals, "*
+    "but means differed in rows $(findall(rows_cols_equal)): $(tmp)")
 end
 
 function get_priors_dict_indiv(inv_case, indiv_ids; scenario)
     Dict(id => get_case_priors_dict(inv_case, id; scenario) for
-         id in indiv_ids)
+    id in indiv_ids)
 end

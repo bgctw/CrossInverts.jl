@@ -29,3 +29,4 @@ using SymbolicIndexingInterface: SymbolicIndexingInterface as SII
         [_dict_nums[:m2₊τ] => 3.0, _dict_nums[:m2₊i2] => 5.0])
     @test prob.u0 == [10.1, 10.2]
 end;
+

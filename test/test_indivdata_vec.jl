@@ -85,3 +85,4 @@ end
     @test eltype(priors_pop.ranmul_σ) <: Distribution
     @test keys(priors_pop.ranmul_σ) == keys(ranmul)
 end;
+

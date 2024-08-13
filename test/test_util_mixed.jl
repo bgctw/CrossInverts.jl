@@ -30,7 +30,7 @@ tmpf = () -> begin
 
     #p_indiv = CP.get_indiv_parameters(inv_case)
     #priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)    
-    p_indiv = CP.get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
+    (; p_indiv, ranadd_dist_cv, ranmul_dist_cv) = CP.get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
         system_u0_p_default = (; system,
             u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
 
@@ -183,6 +183,23 @@ end
     @test names(chn2) == [Symbol("indiv_ranmul[:sv₊x, 2][1]"),
         Symbol("indiv_ranmul[:sv₊x, 2][2]"), Symbol("indiv_ranmul[:sv₊τ, 2]")]
 end;
+
+@testset "compute_indiv_random" begin
+    chn_rti = compute_indiv_random(chn, pop_info.indiv_ids)
+    # additive 
+    @test all( Symbol.([":sv₊b1[:A]", ":sv₊b1[:B]", ":sv₊b1[:C]"]) .∈ Ref(names(chn_rti, :parameters)))
+    b1 = get(chn, Symbol("ranadd[:sv₊b1]"))[1]
+    b1i1 = get(chn, Symbol("indiv_ranadd[:sv₊b1, 1]"))[1]
+    b1i1s = get(chn_rti, Symbol(":sv₊b1[:A]"))[1]
+    @test b1i1s == b1 .+ b1i1
+    # multiplicative 
+    @test all( Symbol.([":sv₊τ[:A]", ":sv₊τ[:B]", ":sv₊τ[:C]"]) .∈ Ref(names(chn_rti, :parameters)))
+    τ = get(chn, Symbol("ranmul[:sv₊τ]"))[1]
+    τi1 = get(chn, Symbol("indiv_ranmul[:sv₊τ, 1]"))[1]
+    τi1s = get(chn_rti, Symbol(":sv₊τ[:A]"))[1]
+    @test τi1s == τ .* τi1
+end
+
 
 tmpf = () -> begin
     #experiment with accessing subgroups

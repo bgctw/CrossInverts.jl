@@ -208,7 +208,8 @@ function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng 
     (;system, u0_default, p_default) = system_u0_p_default
     defaults(system)
     #indiv_ids = get_case_indiv_ids(inv_case; scenario)
-    p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, system_u0_p_default, rng)
+    (; p_indiv, ranadd_dist_cv, ranmul_dist_cv) = get_indiv_parameters_from_priors(
+        inv_case; scenario, system_u0_p_default, rng)
     # p_indiv = get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
     #     system_u0_p_default = (; system,
     #         u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
@@ -268,6 +269,7 @@ function simulate_indivdata(;inv_case, scenario, unc_par, solver = Tsit5(), rng 
         end
         (; zip(streams, tmp)...)
     end
-    res = (;indivdata=(; zip(p_indiv.indiv_id, obs_tuple)...), p_indiv, d_noise)
+    res = (;indivdata=(; zip(p_indiv.indiv_id, obs_tuple)...), 
+        p_indiv, d_noise, ranadd_dist_cv, ranmul_dist_cv)
 end
 
