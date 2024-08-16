@@ -253,10 +253,11 @@ May provide the axis with template ComponentVector `sample_0`.
 function extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0=nothing)
     sl = sample_i isa ComponentVector ? sample_i :
          MTKHelpers.attach_axis(sample_i, CA.getaxes(sample0)[1])
-    ax_indiv = isempty(sl.indiv) ? CA.FlatAxis() : first(CA.getaxes(sl.indiv))
+    indiv1 = sl.indiv[first(keys(sl.indiv))]
+    ax_indiv = isempty(indiv1) ? CA.FlatAxis() : first(CA.getaxes(indiv1))
     ax_ranadd = isempty(sl.ranadd) ? CA.FlatAxis() : first(CA.getaxes(sl.ranadd))
     ax_ranmul = isempty(sl.ranmul) ? CA.FlatAxis() : first(CA.getaxes(sl.ranmul))
-    ax_site = first(CA.getaxes(sl.indiv))
+    ax_site = CA.Axis(keys(sl.indiv))
     n_site = length(keys(sl.indiv))
     mixed_i = (; sl.fixed, sl.ranadd, sl.ranmul, #sl.ranadd_σ, sl.ranmul_σ,
         indiv = CA.ComponentMatrix(

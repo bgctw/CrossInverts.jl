@@ -15,6 +15,12 @@ using Logging, LoggingExtras
 inv_case = SampleSystemVecCase()
 scenario = NTuple{0, Symbol}()
 
+(; system, indiv_info, pop_info) = setup_inversion(inv_case; scenario);
+
+(; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul) = pop_info.mixed
+(; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
+
+
 tmpf = () -> begin
     @named sv = CP.samplesystem_vec()
     @named system = embed_system(sv)
@@ -67,10 +73,6 @@ tmpf = () -> begin
         inv_case; scenario, system_u0_p_default)
 end
 
-(; system, indiv_info, pop_info) = setup_inversion(inv_case; scenario);
-
-(; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul) = pop_info.mixed
-(; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
 
 @testset "setup_tools_mixed" begin
     @test problemupdater isa ProblemUpdater
@@ -218,63 +220,27 @@ end
 @testset "extract_mixed_effects" begin
     me = CP.extract_mixed_effects(pop_info.sample0)
     #@test all([me[k] == pop_info.mixed[k] for k in keys(pop_info.mixed)])
-    # me has a reshaped axis, while mixed has plain axes -> not fully equal
-    # but can test numbers and shap
+    # me has a view-typed axis, while mixed has plain axes -> not fully equal
+    # but can test numbers and shape
+    #@test all([me[k] == pop_info.mixed[k] for k in keys(pop_info.mixed)])
     @test all([vec(me[k]) == vec(pop_info.mixed[k]) for k in keys(pop_info.mixed)])
     @test all([size(me[k]) == size(pop_info.mixed[k]) for k in keys(pop_info.mixed)])
+    @test keys(me.indiv[1,:]) == pop_info.indiv_ids
+    @test keys(me.indiv[:,1]) == pop_info.mixed_keys.indiv
+    @test keys(me.indiv_ranadd[1,:]) == pop_info.indiv_ids
+    @test keys(me.indiv_ranadd[:,1]) == pop_info.mixed_keys.ranadd
+    @test keys(me.indiv_ranmul[1,:]) == pop_info.indiv_ids
+    @test keys(me.indiv_ranmul[:,1]) == pop_info.mixed_keys.ranmul
     #
     priors_σ = CA.ComponentVector(;pop_info.priors_pop.ranadd_σ..., pop_info.priors_pop.ranmul_σ...)
     sample_i = CP.get_init_mixedmodel(;me..., priors_σ)
-    @test all(sample_i .== pop_info.sample0)
-    # TODO
-    # names of parameters in axes missing?
-    sample_i.indiv
-    pop_info.sample0.indiv
+    @test sample_i == pop_info.sample0
     #
     # missing indiv_ranadd case - fill with 0
     sample_i2 = CP.get_init_mixedmodel(;me[(:fixed, :ranadd, :ranmul, :indiv)]..., priors_σ)
     @test all([size(sample_i2[k]) == size(sample_i2[k]) for k in keys(sample_i2)])
     @test all(sample_i2.indiv_ranadd .== 0.0)
     @test all(sample_i2.indiv_ranmul .== 1.0)
+    @test CA.getaxes(sample_i2) == CA.getaxes(sample_i)
 end
 
-
-
-tmpf = () -> begin
-    #experiment with accessing subgroups
-    names(chn)
-    sections(chn)
-    namesingroup(chn, :ranadd)
-    namesingroup(chn, :ranmul)
-    namesingroup(chn, :pranmul_σ)
-    namesingroup(chn, :fixed)
-    namesingroup(chn, :indiv)
-
-    namesingroup(chn, :indiv_ranmul)
-
-    sample0.indiv_ranmul
-
-    tmp = group(chn, :ranadd)
-    tmp = group(chn, :ranmul)
-    tmp = group(chn, :indiv)
-    replacenames(tmp, "indiv[:sv₊i, 1]" => "sv₊i[:A]")
-    sample0[:indiv]
-
-    chn = group(chn, :fixed)
-    keys(sample0.fixed)
-
-    tmp = extract_group(chn, :fixed)
-    tmp = extract_group(chn, :pranmul_σ)
-    tmp = extract_group(chn, :indiv)
-    tmp = extract_group(chn, :indiv, indiv_ids)
-    tmp = extract_group(chn, :indiv_ranmul)
-    tmp = extract_group(chn, :indiv_ranmul, indiv_ids)
-    tmp = compute_indiv_random(chn, indiv_ids)
-
-    replace(":sv₊i, 1", r",\s*1$" => "[X]")
-    arr = cat(Array(chn, append_chains = false)..., dims = 3)
-    tmp = CA.ComponentArray(arr, CA.FlatAxis(), first(CA.getaxes(sample0)), CA.FlatAxis())
-
-    tmp[:, :fixed, :]
-    chn2 = get_example_chain()
-end
