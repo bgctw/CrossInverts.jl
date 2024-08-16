@@ -97,22 +97,27 @@ end
     @test all((:fixed, :ranadd, :ranmul, :indiv, :popt) .∈ Ref(keys(psets)))
     @test psets.fixed isa ODEProblemParSetter
     #
-    #TODO
     # test that extracting from the problem gets the mean of priors
-    indiv_ids = pop_info.indiv_ids
-    mixed_keys = pop_info.mixed_keys
-    priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)
+    # in the default scenario, they are overridden by get_case_u0p
+    scenario2 = (scenario...,:no_u0p)
+    _setup2 = setup_inversion(
+        inv_case; scenario=scenario2, 
+        system_u0_p_default=pop_info.system_u0_p_default);
+    (system, pop_info2, indiv_info2) = getindex.(Ref(_setup2), (:system, :pop_info, :indiv_info))
+    indiv_ids = pop_info2.indiv_ids
+    mixed_keys = pop_info2.mixed_keys
+    priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario=scenario2)
     mean_priors_mixed = CP.mean_priors(;
         mixed_keys = pop_info.mixed_keys,
         priors_dict = priors_dict_indiv[:B], # priors for second indiv
         system)
-    (_fixed, _ranadd, _ranmul, _indiv1, _popt) = mean_priors_mixed
-    problem = indiv_info.tools[2].problem
-    # @test flatten1(get_paropt_labeled(psets.fixed, problem)) == _fixed
-    # @test flatten1(get_paropt_labeled(psets.ranadd, problem)) == _ranadd
-    # @test flatten1(get_paropt_labeled(psets.ranmul, problem)) == _ranmul
-    # @test flatten1(get_paropt_labeled(psets.indiv, problem)) == _indiv1
-    # @test flatten1(get_paropt_labeled(psets.popt, problem)) == _popt
+    (_fixed, _ranadd, _ranmul, _indiv2, _popt) = mean_priors_mixed
+    problem = indiv_info2.tools[2].problem
+    @test flatten1(get_paropt_labeled(psets.fixed, problem)) == _fixed
+    @test flatten1(get_paropt_labeled(psets.ranadd, problem)) == _ranadd
+    @test flatten1(get_paropt_labeled(psets.ranmul, problem)) == _ranmul
+    @test flatten1(get_paropt_labeled(psets.indiv, problem)) == _indiv2
+    @test flatten1(get_paropt_labeled(psets.popt, problem)) == _popt
 end;
 
 solver = AutoTsit5(Rodas5P())

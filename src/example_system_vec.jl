@@ -186,6 +186,7 @@ function get_case_problemupdater(
 end
 
 function get_case_u0p(::SampleSystemVecCase; scenario)
+    :no_u0p ∈ scenario && return(DataFrame(indiv_id = Symbol[]))
     # creating the csv string:
     # io = IOBuffer()
     # write_csv_cv(io, indiv_info[:, 1:3])
