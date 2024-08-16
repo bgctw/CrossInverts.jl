@@ -185,23 +185,25 @@ function get_case_problemupdater(
     get_ode_problemupdater(KeysProblemParGetter(mapping, keys(axis_state(pset))), system)
 end
 
+
 function get_case_u0p(::SampleSystemVecCase; scenario)
     # creating the csv string:
     # io = IOBuffer()
-    # CSV.write(io, indiv_info[:, 1:3])
+    # write_csv_cv(io, indiv_info[:, 1:3])
     # s = String(take!(io))
     # print(s)
     csv = """
-indiv_id,u0,p
-A,"(sv₊x = [2.0383292042153554, 2.0383292042153554])","(sv₊τ = 1.4009482259635606, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
-B,"(sv₊x = [2.106525817516089, 2.038672471649886])","(sv₊τ = 1.4752043120005407, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
-C,"(sv₊x = [2.010654503237803, 2.0510192980037196])","(sv₊τ = 1.4034321912259409, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
+# u0=(Axis(sv₊x = 1:2,),)
+# p=(Axis(sv₊τ = 1, sv₊i = 2, sv₊i2 = 3, sv₊p = 4:6, sv₊b1 = 7),)
+indiv_id,u0_1,u0_2,p_1,p_2,p_3,p_4,p_5,p_6,p_7
+A,2.0,2.0,1.5,1.518711604434893,0.1,2.400789101642099,2.400789101642099,2.400789101642099,0.06315476261390056
+B,2.106525817516089,2.038672471649886,1.4752043120005407,1.518711604434893,0.1,2.400789101642099,2.400789101642099,2.400789101642099,0.06315476261390056
+C,2.1651893082724047,2.1651893082724047,1.7902227199892276,1.9967121496392446,0.1,2.704712264824784,2.704712264824784,2.704712264824784,0.06315476261390056
 """
-    df = CSV.read(IOBuffer(csv), DataFrame)
+    df = read_csv_cv(IOBuffer(csv))
     DataFrames.transform!(df,
         :indiv_id => ByRow(Symbol) => :indiv_id,
-        :u0 => ByRow(parse_nested_tuple) => :u0,
-        :p => ByRow(parse_nested_tuple) => :p)
+    )
     df.u0[1][:sv₊x] .= [2.0, 2.0]
     df.p[1][:sv₊τ] = 1.5
     # testing some information missing in default, needed from prior
@@ -212,14 +214,42 @@ C,"(sv₊x = [2.010654503237803, 2.0510192980037196])","(sv₊τ = 1.40343219122
     subset!(df, :indiv_id => ByRow(≠(:C)))
     return(df)
 end
-function parse_nested_tuple(s)
-    # insert a comma before each closing bracket if comma is not there yet
-    # otherwise a single netry its not recognized as NamedTuple but as bracketed assignment
-    # negative lookbehind https://stackoverflow.com/a/9306228    
-    s1 = replace(s, r"(?<!,)\)" => ",)")
-    # TODO: replace by something less dangerous but more flexible than JLD
-    # such as storing numeric vectors - but then how to store the axes?
-    #    name [length?]
-    t = eval(Meta.parse(s1)) # NamedTuple
-    ComponentVector(t)
-end
+
+# function get_case_u0p(::SampleSystemVecCase; scenario)
+#     # creating the csv string:
+#     # io = IOBuffer()
+#     # CSV.write(io, indiv_info[:, 1:3])
+#     # s = String(take!(io))
+#     # print(s)
+#     csv = """
+# indiv_id,u0,p
+# A,"(sv₊x = [2.0383292042153554, 2.0383292042153554])","(sv₊τ = 1.4009482259635606, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
+# B,"(sv₊x = [2.106525817516089, 2.038672471649886])","(sv₊τ = 1.4752043120005407, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
+# C,"(sv₊x = [2.010654503237803, 2.0510192980037196])","(sv₊τ = 1.4034321912259409, sv₊i = 1.518711604434893, sv₊i2 = 0.1, sv₊p = [2.400789101642099, 2.400789101642099, 2.400789101642099])"
+# """
+#     df = CSV.read(IOBuffer(csv), DataFrame)
+#     DataFrames.transform!(df,
+#         :indiv_id => ByRow(Symbol) => :indiv_id,
+#         :u0 => ByRow(parse_nested_tuple) => :u0,
+#         :p => ByRow(parse_nested_tuple) => :p)
+#     df.u0[1][:sv₊x] .= [2.0, 2.0]
+#     df.p[1][:sv₊τ] = 1.5
+#     # testing some information missing in default, needed from prior
+#     keys_p_noi = setdiff(keys(df.p[1]), (:sv₊i,))
+#     DataFrames.transform(df,
+#         :p => ByRow(cv -> cv[keys_p_noi]) => :p)
+#     # testing no information for whole individuals
+#     subset!(df, :indiv_id => ByRow(≠(:C)))
+#     return(df)
+# end
+# function parse_nested_tuple(s)
+#     # insert a comma before each closing bracket if comma is not there yet
+#     # otherwise a single netry its not recognized as NamedTuple but as bracketed assignment
+#     # negative lookbehind https://stackoverflow.com/a/9306228    
+#     s1 = replace(s, r"(?<!,)\)" => ",)")
+#     # replace by something less dangerous but more flexible than JLD - read_csv_cv
+#     # such as storing numeric vectors - but then how to store the axes?
+#     #    name [length?]
+#     t = eval(Meta.parse(s1)) # NamedTuple
+#     ComponentVector(t)
+# end
