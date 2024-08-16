@@ -35,8 +35,8 @@ another parameter.
 
 The default is a `NullProblemUpdater`, which does not modify parameters.    
 """
-function get_case_problemupdater(::AbstractCrossInversionCase; 
-    system, scenario = NTuple{0, Symbol}())
+function get_case_problemupdater(::AbstractCrossInversionCase;
+        system, scenario = NTuple{0, Symbol}())
     NullProblemUpdater()
 end
 
@@ -79,7 +79,6 @@ Provide Tuple of Symbols identifying the individuals.
 """
 function get_case_indiv_ids end
 
-
 """
     get_case_obs_uncertainty_dist_type(::AbstractCrossInversionCase; scenario)
 
@@ -87,7 +86,6 @@ Provide the type of distribution of observation uncertainty for given stream,
 to be used with `fit_mean_Σ`.
 """
 function get_case_obs_uncertainty_dist_type end
-
 
 """
     get_case_indivdata(::AbstractCrossInversionCase, indiv_id; scenario)
@@ -111,7 +109,6 @@ Provide a dictionary (par -> Distribution) for prior parameters and unknowns.
 """
 function get_case_priors_dict end
 
-
 """
     get_case_priors_random_dict(::AbstractCrossInversionCase; scenario)
 
@@ -133,7 +130,7 @@ function df_from_paramsModeUpperRows(paramsModeUpperRows)
         dist = dist0 = fit(dType, mode, @qp_uu(upper), Val(:mode))
     end
     DataFrames.transform!(df_dist, Cols(:par, :dType, :mode, :upper) => ByRow(f1v) => :dist)
-    return(df_dist)
+    return (df_dist)
 end
 
 """
@@ -188,7 +185,6 @@ end
 #     ComponentVector(; zip(stream_names, tup)...)
 # end
 
-
 """
 Generate observations and uncertainties according to priors
 
@@ -205,15 +201,15 @@ For MvNormal and MvLogNormal this is the Σ Covariance matrix.
 Typical LogNormal is `convert(Matrix, PDiagMat(log.([1.1, 1.1])))`.
 
 """
-function simulate_indivdata(;inv_case, scenario, unc_par, 
-    t_each = missing, 
-    t_stream_dict = Dict(k => t_each for k in keys(unc_par)),
-    solver = Tsit5(), 
-    rng = StableRNG(123),
-    system_u0_p_default = get_case_inverted_system(inv_case; scenario),
-    )
+function simulate_indivdata(; inv_case, scenario, unc_par,
+        t_each = missing,
+        t_stream_dict = Dict(k => t_each for k in keys(unc_par)),
+        solver = Tsit5(),
+        rng = StableRNG(123),
+        system_u0_p_default = get_case_inverted_system(inv_case; scenario)
+)
     # using and setup in test_util_mixed
-    (;system, u0_default, p_default) = system_u0_p_default
+    (; system, u0_default, p_default) = system_u0_p_default
     defaults(system)
     #indiv_ids = get_case_indiv_ids(inv_case; scenario)
     res_indiv = get_indiv_parameters_from_priors(
@@ -229,7 +225,7 @@ function simulate_indivdata(;inv_case, scenario, unc_par,
     ts = sort(union(values(t_stream_dict)...))
     # use u0 and p from first individual, overridden below
     problem = ODEProblem(
-        system, system_num_dict(p_indiv.u0[1], _dict_nums), (minimum(ts), maximum(ts)), 
+        system, system_num_dict(p_indiv.u0[1], _dict_nums), (minimum(ts), maximum(ts)),
         system_num_dict(p_indiv.p[1], _dict_nums))
     #indiv_id = first(keys(p_indiv))
     streams = collect(keys(unc_par))
@@ -267,7 +263,7 @@ function simulate_indivdata(;inv_case, scenario, unc_par,
             obs_unc = fill(unc_par[stream], n_obs)  # may be different for each obs
             noise = rand(rng, d_noise[stream], n_obs)
             obs = if dtypes[stream] <: Union{Normal, MvNormal}
-                length(size(noise)) == 1 ? 
+                length(size(noise)) == 1 ?
                 obs = obs_true .+ noise :
                 obs = map(obs_true, eachcol(noise)) do obs_i, noise_i
                     obs_i .+ noise_i # within each timepoint add generated noise
@@ -283,7 +279,6 @@ function simulate_indivdata(;inv_case, scenario, unc_par,
         end
         (; zip(streams, tmp)...)
     end
-    res = (;indivdata=(; zip(p_indiv.indiv_id, obs_tuple)...), 
+    res = (; indivdata = (; zip(p_indiv.indiv_id, obs_tuple)...),
         p_indiv, d_noise, ranadd_dist_cv, ranmul_dist_cv)
 end
-

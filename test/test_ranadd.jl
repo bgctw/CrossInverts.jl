@@ -96,8 +96,8 @@ end;
         #SP.density(chn_ri1)  # individual offsets for b1
         i = 1
         for in in 1:length(b1i_true)
-            @test b1i_true[i] >= b1im[i] - 2*b1isd[i]
-            @test b1i_true[i] <= b1im[i] + 2*b1isd[i]
+            @test b1i_true[i] >= b1im[i] - 2 * b1isd[i]
+            @test b1i_true[i] <= b1im[i] + 2 * b1isd[i]
         end
     end
     #chn_ri1 =  extract_group(chn_ri, Symbol(":b2"))
@@ -112,7 +112,3 @@ end;
     @test isempty(res_s.p_indiv.indiv_ranadd[1])
     @test !isempty(res_s.p_indiv.indiv_ranmul[1])
 end
-
-
-
-

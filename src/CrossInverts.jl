@@ -17,11 +17,11 @@ using MCMCChains: MCMCChains
 using Random, StableRNGs
 using PDMats: PDiagMat
 
-
 export AbstractCrossInversionCase
 export get_case_inverted_system
 export get_case_mixed_keys, get_case_indiv_ids
-export get_case_priors_dict, get_case_priors_random_dict, get_case_obs_uncertainty_dist_type, get_case_indivdata
+export get_case_priors_dict, get_case_priors_random_dict,
+       get_case_obs_uncertainty_dist_type, get_case_indivdata
 export get_case_problemupdater
 export get_case_obs_uncertainty_dist_type
 export get_case_u0p
@@ -47,7 +47,7 @@ include("util_sim.jl")
 export gen_model_cross
 include("util_sample.jl")
 
-export extract_group 
+export extract_group
 export compute_indiv_random
 include("extract_group.jl")
 

@@ -258,7 +258,7 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
     _resample_random = (problem) -> begin
         if isempty(mixed_keys.ranadd)
             ranadd_offset = ComponentVector()
-        else 
+        else
             ranadd = get_paropt_labeled(psets.ranadd, problem)
             ranadd_offset = map(dist -> Base.rand(rng, dist), ranadd_dist_cv)
             a = ranadd .+ ranadd_offset
@@ -289,7 +289,7 @@ function get_indiv_parameters_from_priors(inv_case::AbstractCrossInversionCase;
         get_par_labeled(psets.popt, prob1), get_paropt_labeled(psets.popt, prob1))
     df[1, :indiv_ranadd] .= 0.0
     df[1, :indiv_ranmul] .= 1.0
-    (;p_indiv = df[:, Not(:problem)], ranadd_dist_cv, ranmul_dist_cv)
+    (; p_indiv = df[:, Not(:problem)], ranadd_dist_cv, ranmul_dist_cv)
 end
 
 # function check_equal_across_indiv(kc, mixed_indiv)

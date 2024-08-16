@@ -20,7 +20,6 @@ scenario = NTuple{0, Symbol}()
 (; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul) = pop_info.mixed
 (; psets, problemupdater, priors_pop, sample0, effect_pos) = pop_info
 
-
 tmpf = () -> begin
     @named sv = CP.samplesystem_vec()
     @named system = embed_system(sv)
@@ -36,7 +35,8 @@ tmpf = () -> begin
 
     #p_indiv = CP.get_indiv_parameters(inv_case)
     #priors_dict_indiv = get_priors_dict_indiv(inv_case, indiv_ids; scenario)    
-    (; p_indiv, ranadd_dist_cv, ranmul_dist_cv) = CP.get_indiv_parameters_from_priors(inv_case; scenario, indiv_ids, mixed_keys,
+    (; p_indiv, ranadd_dist_cv, ranmul_dist_cv) = CP.get_indiv_parameters_from_priors(
+        inv_case; scenario, indiv_ids, mixed_keys,
         system_u0_p_default = (; system,
             u0_default = CA.ComponentVector(), p_default = CA.ComponentVector(sv₊i2 = 0.1)))
 
@@ -73,7 +73,6 @@ tmpf = () -> begin
         inv_case; scenario, system_u0_p_default)
 end
 
-
 @testset "setup_tools_mixed" begin
     @test problemupdater isa ProblemUpdater
     @test problemupdater.pget.source_keys == (:sv₊i,)
@@ -87,12 +86,11 @@ end;
     t_each = [0.2, 0.4, 1.0, 2.0]
     t_stream_dict = Dict(k => t_each for k in keys(unc_par))
     t_stream_dict[:sv₊b1obs] = [0.1]
-    res = simulate_indivdata(;inv_case, scenario, unc_par, t_stream_dict,
-        system_u0_p_default=pop_info.system_u0_p_default);
-#     #clipboard(res.indivdata) # not on slurm
-#     res.indivdata  # copy from terminal and paste into get_case_indivdata
+    res = simulate_indivdata(; inv_case, scenario, unc_par, t_stream_dict,
+        system_u0_p_default = pop_info.system_u0_p_default)
+    #     #clipboard(res.indivdata) # not on slurm
+    #     res.indivdata  # copy from terminal and paste into get_case_indivdata
 end
-
 
 @testset "setup_psets_mixed" begin
     psets = pop_info.psets
@@ -204,13 +202,15 @@ end;
 @testset "compute_indiv_random" begin
     chn_rti = compute_indiv_random(chn, pop_info.indiv_ids)
     # additive 
-    @test all( Symbol.([":sv₊b1[:A]", ":sv₊b1[:B]", ":sv₊b1[:C]"]) .∈ Ref(names(chn_rti, :parameters)))
+    @test all(Symbol.([":sv₊b1[:A]", ":sv₊b1[:B]", ":sv₊b1[:C]"]) .∈
+              Ref(names(chn_rti, :parameters)))
     b1 = get(chn, Symbol("ranadd[:sv₊b1]"))[1]
     b1i1 = get(chn, Symbol("indiv_ranadd[:sv₊b1, 1]"))[1]
     b1i1s = get(chn_rti, Symbol(":sv₊b1[:A]"))[1]
     @test b1i1s == b1 .+ b1i1
     # multiplicative 
-    @test all( Symbol.([":sv₊τ[:A]", ":sv₊τ[:B]", ":sv₊τ[:C]"]) .∈ Ref(names(chn_rti, :parameters)))
+    @test all(Symbol.([":sv₊τ[:A]", ":sv₊τ[:B]", ":sv₊τ[:C]"]) .∈
+              Ref(names(chn_rti, :parameters)))
     τ = get(chn, Symbol("ranmul[:sv₊τ]"))[1]
     τi1 = get(chn, Symbol("indiv_ranmul[:sv₊τ, 1]"))[1]
     τi1s = get(chn_rti, Symbol(":sv₊τ[:A]"))[1]
@@ -225,22 +225,23 @@ end
     #@test all([me[k] == pop_info.mixed[k] for k in keys(pop_info.mixed)])
     @test all([vec(me[k]) == vec(pop_info.mixed[k]) for k in keys(pop_info.mixed)])
     @test all([size(me[k]) == size(pop_info.mixed[k]) for k in keys(pop_info.mixed)])
-    @test keys(me.indiv[1,:]) == pop_info.indiv_ids
-    @test keys(me.indiv[:,1]) == pop_info.mixed_keys.indiv
-    @test keys(me.indiv_ranadd[1,:]) == pop_info.indiv_ids
-    @test keys(me.indiv_ranadd[:,1]) == pop_info.mixed_keys.ranadd
-    @test keys(me.indiv_ranmul[1,:]) == pop_info.indiv_ids
-    @test keys(me.indiv_ranmul[:,1]) == pop_info.mixed_keys.ranmul
+    @test keys(me.indiv[1, :]) == pop_info.indiv_ids
+    @test keys(me.indiv[:, 1]) == pop_info.mixed_keys.indiv
+    @test keys(me.indiv_ranadd[1, :]) == pop_info.indiv_ids
+    @test keys(me.indiv_ranadd[:, 1]) == pop_info.mixed_keys.ranadd
+    @test keys(me.indiv_ranmul[1, :]) == pop_info.indiv_ids
+    @test keys(me.indiv_ranmul[:, 1]) == pop_info.mixed_keys.ranmul
     #
-    priors_σ = CA.ComponentVector(;pop_info.priors_pop.ranadd_σ..., pop_info.priors_pop.ranmul_σ...)
-    sample_i = CP.get_init_mixedmodel(;me..., priors_σ)
+    priors_σ = CA.ComponentVector(;
+        pop_info.priors_pop.ranadd_σ..., pop_info.priors_pop.ranmul_σ...)
+    sample_i = CP.get_init_mixedmodel(; me..., priors_σ)
     @test sample_i == pop_info.sample0
     #
     # missing indiv_ranadd case - fill with 0
-    sample_i2 = CP.get_init_mixedmodel(;me[(:fixed, :ranadd, :ranmul, :indiv)]..., priors_σ)
+    sample_i2 = CP.get_init_mixedmodel(;
+        me[(:fixed, :ranadd, :ranmul, :indiv)]..., priors_σ)
     @test all([size(sample_i2[k]) == size(sample_i2[k]) for k in keys(sample_i2)])
     @test all(sample_i2.indiv_ranadd .== 0.0)
     @test all(sample_i2.indiv_ranmul .== 1.0)
     @test CA.getaxes(sample_i2) == CA.getaxes(sample_i)
 end
-

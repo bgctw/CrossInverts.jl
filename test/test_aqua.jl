@@ -6,7 +6,7 @@ using Aqua
     Aqua.test_all(CrossInverts;
         unbound_args = false, # does not recognize Union{NTuple{N, Symbol}
         stale_deps = (ignore = [:Requires],),
-        ambiguities = false,)
+        ambiguities = false)
 end;
 
 @testset "ambiguities package" begin

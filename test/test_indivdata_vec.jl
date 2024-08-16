@@ -73,7 +73,8 @@ end
     # @test get_system(res.problem) == sys
     #
     fixed = CA.ComponentVector{Float64}()
-    priors_pop = setup_priors_pop(keys(fixed), keys(ranadd), keys(ranmul); inv_case, scenario)
+    priors_pop = setup_priors_pop(
+        keys(fixed), keys(ranadd), keys(ranmul); inv_case, scenario)
     @test eltype(priors_pop.fixed) <: Distribution
     @test keys(priors_pop.fixed) == keys(fixed)
     #
@@ -92,11 +93,9 @@ struct EmptyInvCase <: AbstractCrossInversionCase end
 
 @testset "default implementations of AbstractCrossInversionCase" begin
     inv_case_empty = EmptyInvCase()
-    @test get_case_problemupdater(inv_case_empty; system=sys, scenario) isa NullProblemUpdater
-    df = get_case_u0p(inv_case_empty; scenario) 
+    @test get_case_problemupdater(inv_case_empty; system = sys, scenario) isa
+          NullProblemUpdater
+    df = get_case_u0p(inv_case_empty; scenario)
     @test DataFrames.nrow(df) == 0
-    @test all( ("indiv_id","u0","p") .∈ Ref(names(df)))
+    @test all(("indiv_id", "u0", "p") .∈ Ref(names(df)))
 end;
-
-
-

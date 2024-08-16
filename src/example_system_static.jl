@@ -23,20 +23,20 @@ function samplesystem_static(; name, a = 1.0, b1 = 1.0, b2 = 2.0, b3 = 3.0, n_re
     return sys
 end
 
-function get_nrec_staticcase(;scenario) 
+function get_nrec_staticcase(; scenario)
     n_rec = :single_ranmul ∈ scenario ? 2 : 12
 end
 function get_case_inverted_system(::SampleSystemStaticCase; scenario)
-    n_rec = get_nrec_staticcase(;scenario) 
+    n_rec = get_nrec_staticcase(; scenario)
     # for single_ranmul do only two obs per individual to test ranmul~lognormal 
-    @named sys_static = samplesystem_static(;n_rec)
+    @named sys_static = samplesystem_static(; n_rec)
     @named system = structural_simplify(sys_static)
     rng = StableRNG(123)
     d_uniform = Uniform(0.0, 5.0)
     x1 = Base.rand(rng, d_uniform, n_rec)
     x2 = Base.rand(rng, d_uniform, n_rec)
     x3 = Base.rand(rng, d_uniform, n_rec)
-    u0_default = CA.ComponentVector(; x1 ,x2, x3)
+    u0_default = CA.ComponentVector(; x1, x2, x3)
     p_default = CA.ComponentVector{Float64}(a = 1.0)
     (; system, u0_default, p_default)
 end
@@ -97,12 +97,12 @@ function get_case_priors_dict(
             :b2 => fit(Normal, 2.0, @qp_uu(5.0))
         )
     end
-    if :single_ranadd ∈ scenario    
+    if :single_ranadd ∈ scenario
         dd = Dict{Symbol, Distribution}(
             :b1 => fit(Normal, 1.0, @qp_uu(5.0)),
         )
     end
-    if :single_ranmul ∈ scenario    
+    if :single_ranmul ∈ scenario
         dd = Dict{Symbol, Distribution}(
             :b1 => fit(LogNormal, 1.0, @qp_uu(5.0)),
         )
@@ -137,11 +137,11 @@ function get_case_obs_uncertainty_dist_type(::SampleSystemStaticCase, stream;
 end
 
 function simulate_case_indivdata(inv_case::SampleSystemStaticCase; scenario)
-    n_rec = get_nrec_staticcase(;scenario) 
+    n_rec = get_nrec_staticcase(; scenario)
     unc_par = Dict(:y => PDiagMat(fill(0.2, n_rec)))
     t_each = [0.0]
-    (; indivdata, p_indiv, d_noise) = simulate_indivdata(; 
-        inv_case, scenario, unc_par, t_each, rng=StableRNG(0815))
+    (; indivdata, p_indiv, d_noise) = simulate_indivdata(;
+        inv_case, scenario, unc_par, t_each, rng = StableRNG(0815))
 end
 
 function get_case_indivdata(
@@ -152,7 +152,7 @@ end
 
 function get_case_u0p(inv_case::SampleSystemStaticCase; scenario)
     df = DataFrame(indiv_id = Symbol[])
-    if (:all_ranadd ∈ scenario) | (:all_ranmul ∈ scenario) 
+    if (:all_ranadd ∈ scenario) | (:all_ranmul ∈ scenario)
         # set b3 to 0
         indiv_ids = get_case_indiv_ids(inv_case; scenario)
         ni = length(indiv_ids)

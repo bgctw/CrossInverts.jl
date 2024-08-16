@@ -5,7 +5,7 @@ using MCMCChains
 
 moduledir = dirname(dirname(pathof(CrossInverts)))
 testdir = joinpath(moduledir, "test")
-include(joinpath(testdir,"example_chns.jl"))
+include(joinpath(testdir, "example_chns.jl"))
 
 #First lets mockup a sampling result and correspond effect positions
 (; chn, effect_pos) = get_example_chain()

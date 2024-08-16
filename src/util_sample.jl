@@ -52,14 +52,14 @@ function gen_model_cross(;
             npsite = count_paropt(psets.indiv)
             fixed_nl = StaticArrays.MVector{npfix, T}(undef)
             #fixed_nl = Vector{T}(undef, npfix)
-            fixed = fixed1 = label_paropt_flat1(psets.fixed, fixed_nl; omitwarning=true)
+            fixed = fixed1 = label_paropt_flat1(psets.fixed, fixed_nl; omitwarning = true)
             #k = first(keys(fixed))
             for k in keys(fixed)
                 fixed[k] ~ priors_pop.fixed[k]
                 #fixed[k] = rand(priors_pop.fixed[k])
             end
             ranadd_nl = StaticArrays.MVector{npranadd, T}(undef)
-            ranadd = label_paropt_flat1(psets.ranadd, ranadd_nl; omitwarning=true)
+            ranadd = label_paropt_flat1(psets.ranadd, ranadd_nl; omitwarning = true)
             #k = first(keys(ranadd))
             for k in keys(ranadd)
                 ranadd[k] ~ priors_pop.ranadd[k]
@@ -67,7 +67,7 @@ function gen_model_cross(;
             end
             #ranmul = Vector{T}(undef, npranmul)
             ranmul_nl = StaticArrays.MVector{npranmul, T}(undef)
-            ranmul = label_paropt_flat1(psets.ranmul, ranmul_nl; omitwarning=true)
+            ranmul = label_paropt_flat1(psets.ranmul, ranmul_nl; omitwarning = true)
             #k = first(keys(ranmul))
             for k in keys(ranmul)
                 ranmul[k] ~ priors_pop.ranmul[k]
@@ -75,14 +75,14 @@ function gen_model_cross(;
             end
             #pranadd_σ = Vector{T}(undef, npranadd)
             pranadd_σ_nl = StaticArrays.MVector{npranadd, T}(undef)
-            pranadd_σ = label_paropt_flat1(psets.ranadd, pranadd_σ_nl; omitwarning=true)
+            pranadd_σ = label_paropt_flat1(psets.ranadd, pranadd_σ_nl; omitwarning = true)
             #k = first(keys(pranadd_σ))
             for k in keys(pranadd_σ)
                 pranadd_σ[k] ~ priors_pop.ranadd_σ[k]
                 #pranadd_σ[k] = rand(priors_pop.ranadd_σ[k])
             end
             pranmul_σ_nl = StaticArrays.MVector{npranmul, T}(undef)
-            pranmul_σ = label_paropt_flat1(psets.ranmul, pranmul_σ_nl; omitwarning=true)
+            pranmul_σ = label_paropt_flat1(psets.ranmul, pranmul_σ_nl; omitwarning = true)
             #k = first(keys(pranmul_σ))
             for k in keys(pranmul_σ)
                 pranmul_σ[k] ~ priors_pop.ranmul_σ[k]
@@ -186,7 +186,8 @@ function gen_model_cross(;
 end
 
 """
-    get_init_mixedmodel(fixed::ComponentVector, ranadd::ComponentVector, ranmul::ComponentVector, indiv::ComponentMatrix,
+    get_init_mixedmodel(fixed::ComponentVector, 
+        ranadd::ComponentVector, ranmul::ComponentVector, indiv::ComponentMatrix,
         priors_σ, indiv_ranadd, indiv_ranmul)
 
 Construct a ComponentVector corresponding to the parameters sampled by the mixed model.
@@ -250,7 +251,7 @@ end
 Extract mixed effects in the format supplied to sim_obs from linear sample.
 May provide the axis with template ComponentVector `sample_0`.
 """
-function extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0=nothing)
+function extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0 = nothing)
     sl = sample_i isa ComponentVector ? sample_i :
          MTKHelpers.attach_axis(sample_i, CA.getaxes(sample0)[1])
     indiv1 = sl.indiv[first(keys(sl.indiv))]
@@ -268,7 +269,6 @@ function extract_mixed_effects(sample_i::AbstractVector{<:Number}; sample0=nothi
         indiv_ranmul = CA.ComponentMatrix(
             reshape(sl.indiv_ranmul, trunc(Int, length(sl.indiv_ranmul) / n_site), n_site), ax_ranmul, ax_site))
 end
-
 
 """
 inverse of extract_mixed_effects(samplei)

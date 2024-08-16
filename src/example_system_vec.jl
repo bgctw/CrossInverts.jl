@@ -64,7 +64,7 @@ function get_case_priors_dict(
     # dd[:sv₊x] = product_distribution(dd[:sv₊x_1], dd[:sv₊x_2])
     dd[:sv₊p] = product_MvLogNormal(fill(dist_p0, 3)...)
     dd[:sv₊x] = product_MvLogNormal(dd[:sv₊x_1], dd[:sv₊x_2])
-    return(dd)
+    return (dd)
 end
 
 function product_MvLogNormal(comp...)
@@ -84,7 +84,7 @@ function get_case_priors_random_dict(::SampleSystemVecCase; scenario = NTuple{0,
     #dd[:sv₊x] = Distributions.Product(fill(d_exp, 2))
     # d_lognorm = fit(LogNormal, moments(d_exp))
     # dd[:sv₊x] = product_MvLogNormal(d_lognorm,d_lognorm)
-    return(dd)
+    return (dd)
 end
 
 function get_case_obs_uncertainty_dist_type(::SampleSystemVecCase, stream;
@@ -185,7 +185,6 @@ function get_case_problemupdater(
     get_ode_problemupdater(KeysProblemParGetter(mapping, keys(axis_state(pset))), system)
 end
 
-
 function get_case_u0p(::SampleSystemVecCase; scenario)
     # creating the csv string:
     # io = IOBuffer()
@@ -202,7 +201,7 @@ C,2.1651893082724047,2.1651893082724047,1.7902227199892276,1.9967121496392446,0.
 """
     df = read_csv_cv(IOBuffer(csv))
     DataFrames.transform!(df,
-        :indiv_id => ByRow(Symbol) => :indiv_id,
+        :indiv_id => ByRow(Symbol) => :indiv_id
     )
     df.u0[1][:sv₊x] .= [2.0, 2.0]
     df.p[1][:sv₊τ] = 1.5
@@ -212,7 +211,7 @@ C,2.1651893082724047,2.1651893082724047,1.7902227199892276,1.9967121496392446,0.
         :p => ByRow(cv -> cv[keys_p_noi]) => :p)
     # testing no information for whole individuals
     subset!(df, :indiv_id => ByRow(≠(:C)))
-    return(df)
+    return (df)
 end
 
 # function get_case_u0p(::SampleSystemVecCase; scenario)

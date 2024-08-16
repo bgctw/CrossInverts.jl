@@ -12,14 +12,14 @@ makedocs(;
         prettyurls = get(ENV, "CI", "false") == "true",
         canonical = "https://bgctw.github.io/CrossInverts.jl",
         edit_link = "main",
-        assets = String[],),
+        assets = String[]),
     pages = [
         "Home" => "index.md",
         "Walkthrough" => "example_vec.md", # move to start when not testing docu
         "Extracting effects" => "extract_groups.md",
-        "Providing inversion information" => "inversion_case.md",
-    ],)
+        "Providing inversion information" => "inversion_case.md"
+    ])
 
 deploydocs(;
     repo = "github.com/bgctw/CrossInverts.jl",
-    devbranch = "main",)
+    devbranch = "main")

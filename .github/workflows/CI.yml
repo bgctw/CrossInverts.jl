@@ -35,7 +35,8 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: cjdoris/julia-downgrade-compat-action@v1
-        if: ${{ matrix.version == '1.6' }}
+        # TODO: adjust to 1.10 if 1.11 is out
+        if: ${{ matrix.version == '1.6' }} 
         with:
           skip: Pkg,TOML,Statistics          
       - uses: julia-actions/cache@v1
