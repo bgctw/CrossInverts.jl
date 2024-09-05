@@ -64,18 +64,30 @@ function gen_sim_sols_probs(;
     return sim_sols_probs
 end
 
-function gen_sim_sols(; kwargs...)
+function gen_sim_sols(ax, n_indiv; kwargs...)
     sim_sols_probs = gen_sim_sols_probs(; kwargs...)
-    gen_sim_sols(sim_sols_probs)
+    gen_sim_sols(sim_sols_probs, ax, n_indiv)
 end
 
 # feed a single poptl NamedTuple
 # after calling sim_sols_probs, extract the sol component
-function gen_sim_sols(sim_sols_probs)
-    let sim_sols_probs = sim_sols_probs
-        (poptl; kwargs...) -> begin
-            res_sim = sim_sols_probs(poptl.fixed, poptl.ranadd, poptl.ranmul, poptl.indiv,
-                poptl.indiv_ranadd, poptl.indiv_ranmul;
+# provide a template ComponentVector, such as pop_info.effect_pos
+function gen_sim_sols(sim_sols_probs, ax_template::CA.ComponentVector, n_indiv)
+    gen_sim_sols(sim_sols_probs, first(CA.getaxes(ax_template)), n_indiv)
+end
+function gen_sim_sols(sim_sols_probs, ax::CA.Axis, n_indiv)
+    let sim_sols_probs = sim_sols_probs, ax=ax, n_indiv=n_indiv
+        "simulate for given sample x and retun solution for each individual."
+        (x::Union{AbstractVector,NamedTuple}; kwargs...) -> begin
+            # attach axis if its not yet a ComponentVectr
+            xl = x isa Union{CA.ComponentVector,NamedTuple} ? x : CA.ComponentVector(x, ax)
+            (; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul) = xl
+            # assume all parameters of individual together -> ncol indivs
+            indiv_m = reshape(indiv, :, n_indiv)
+            indiv_ranadd_m = reshape(indiv_ranadd, :, n_indiv)
+            indiv_ranmul_m = reshape(indiv_ranmul, :, n_indiv)
+            res_sim = sim_sols_probs(fixed, ranadd, ranmul, indiv_m,
+                indiv_ranadd_m, indiv_ranmul_m;
                 kwargs...)
             map(x -> x.sol, res_sim)
         end

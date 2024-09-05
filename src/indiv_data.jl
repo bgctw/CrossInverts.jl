@@ -44,7 +44,7 @@ end
     get_case_u0p(::AbstractCrossInversionCase; scenario = NTuple{0, Symbol}())
 
 Return initial values and parameters to set in Problem of each individual.
-If the Data.Frame holds a row for a specific indiv_id, the provided values 
+If the Data.Frame holds a row for a specific `indiv_id`, the provided values 
 override the initial estimate from the priors. 
 This can be used to start optimization from a given state.
 
@@ -118,20 +118,25 @@ of the spread of the ranmul and ranadd effects.
 function get_case_priors_random_dict end
 
 """
-    df_from_paramsModeUpperRows(paramsModeUpperRows)
+    fit_dists_mode_upper(paramsModeUpperRows)
 
-Convert Tuple-Rows of `(:par, :dType, :mode, :upper)` to `DataFrame`.
-And fit distribution and report it in column `:dist`.
+Fit distribution and report it in column `:dist` to information 
+given with DataFrame (or Vector<Tuple>) with columns
+`(:par, :dist_type, :mode, :upper)`
 """
-function df_from_paramsModeUpperRows(paramsModeUpperRows)
-    cols = (:par, :dType, :mode, :upper)
+function fit_dists_mode_upper(paramsModeUpperRows::AbstractVector{<:Tuple})
+    cols = (:par, :dist_type, :mode, :upper)
     df_dist = rename!(DataFrame(Tables.columntable(paramsModeUpperRows)), collect(cols))
-    f1v = (par, dType, mode, upper) -> begin
-        dist = dist0 = fit(dType, mode, @qp_uu(upper), Val(:mode))
+    fit_dists_mode_upper(df_dist)
+end
+function fit_dists_mode_upper(df_dist::DataFrame)
+    f1v = (par, dist_type, mode, upper) -> begin
+        dist = dist0 = fit(dist_type, mode, @qp_uu(upper), Val(:mode))
     end
-    DataFrames.transform!(df_dist, Cols(:par, :dType, :mode, :upper) => ByRow(f1v) => :dist)
+    DataFrames.transform!(df_dist, Cols(:par, :dist_type, :mode, :upper) => ByRow(f1v) => :dist)
     return (df_dist)
 end
+
 
 """
     dict_to_cv(keys, dict::DataFrame)

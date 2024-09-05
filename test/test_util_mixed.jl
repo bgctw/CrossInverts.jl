@@ -80,7 +80,7 @@ end;
 
 @testset "simulate_indivdata" begin
     unc_par = Dict(
-        :sv₊dec2 => 1.1,
+        :sv₊dec2 => log(1.1),
         :sv₊x => convert(Matrix, PDiagMat(log.([1.1, 1.1]))),
         :sv₊b1obs => 0.5)
     t_each = [0.2, 0.4, 1.0, 2.0]
@@ -90,7 +90,7 @@ end;
         system_u0_p_default = pop_info.system_u0_p_default)
     #     #clipboard(res.indivdata) # not on slurm
     #     res.indivdata  # copy from terminal and paste into get_case_indivdata
-end
+end;
 
 @testset "setup_psets_mixed" begin
     psets = pop_info.psets
@@ -152,7 +152,8 @@ sim_sols_probs = gen_sim_sols_probs(;
     @test get_par_labeled(psets.fixed, problem_opt)[:sv₊i2] ≠
           get_par_labeled(psets.fixed, indiv_info.tools[1].problem)[:sv₊i2]
     #
-    sim_sols = gen_sim_sols(;
+    sim_sols = gen_sim_sols(
+        pop_info.sample0, length(indiv_info.indiv_id);
         tools = indiv_info.tools, psets = pop_info.psets,
         problemupdater = pop_info.problemupdater, solver, maxiters = 1e4)
     poptl = (; fixed, ranadd, ranmul, indiv, indiv_ranadd, indiv_ranmul)
@@ -173,11 +174,32 @@ error_on_warning = EarlyFilteredLogger(global_logger()) do log_args
     return true
 end;
 
+# without specifying stream_nums, r, w_streams
 model_cross = gen_model_cross(;
     inv_case, tools = indiv_info.tools,
     priors_pop = pop_info.priors_pop,
     psets = pop_info.psets,
-    sim_sols_probs, scenario, solver);
+    sim_sols_probs, scenario, solver); 
+
+@testset "error message with invalid stream_nums" begin
+    sys_num_dict = get_system_symbol_dict(system)
+    stream_nums = (; ((k,sys_num_dict[k]) for k in (:sv₊x,:sv₊dec2,:sv₊b1obs))...)
+    stream_nums = (; ((k,sys_num_dict[k]) for k in (:sv₊x,:sv₊dec2))...)
+    @test_throws "sv₊b1obs" gen_model_cross(;
+    inv_case, tools = indiv_info.tools,
+    priors_pop = pop_info.priors_pop,
+    psets = pop_info.psets,
+    sim_sols_probs, scenario, solver, 
+    stream_nums);    
+end;
+
+model_cross = gen_model_cross(;
+    inv_case, tools = indiv_info.tools,
+    priors_pop = pop_info.priors_pop,
+    psets = pop_info.psets,
+    sim_sols_probs, scenario, solver, 
+    w_streams=CA.ComponentVector(sv₊x=1.0, sv₊dec2=2.2, sv₊b1obs=1.0), r=1.2
+    );    
 
 tmpf = () -> begin
     # for finding initial step size use some more adaptive steps
@@ -249,4 +271,32 @@ end
     @test all(sample_i2.indiv_ranadd .== 0.0)
     @test all(sample_i2.indiv_ranmul .== 1.0)
     @test CA.getaxes(sample_i2) == CA.getaxes(sample_i)
+end
+
+@testset "temper_unc" begin
+    T = 2.0
+    Σ = [[1.0, 0.5, 0.0] [0.5, 1.0 , 0.5] [0.0, 0.5, 1.0]]
+    x = randn(3)
+    ΣT = temper_unc(MvNormal, missing, Σ, T)
+    L = x' * inv(Σ) * x
+    L2 = x' * inv(ΣT) * x
+    @test L2 ≈ L / T
+    #
+    ΣT = temper_unc(MvLogNormal, missing, Σ, T)
+    L = x' * inv(Σ) * x
+    L2 = x' * inv(ΣT) * x
+    @test L2 ≈ L / T
+    #
+    σ = 1.2
+    σT = temper_unc(Normal, missing, σ, T)
+    x = 0.8
+    L = x^2/σ^2
+    L2 = x^2/σT^2
+    @test L2 ≈ L / T
+    #
+    σT = temper_unc(LogNormal, missing, σ, T)
+    x = 0.8
+    L = x^2/σ^2
+    L2 = x^2/σT^2
+    @test L2 ≈ L / T
 end

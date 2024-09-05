@@ -13,13 +13,14 @@ get_case_priors_dict
 get_case_priors_random_dict
 get_case_obs_uncertainty_dist_type
 get_case_indivdata
+get_case_u0p
 get_case_problemupdater
 ```
 
 # Setup tools 
 ```@docs
 setup_inversion
-df_from_paramsModeUpperRows
+fit_dists_mode_upper
 ```
 
 # Simulating

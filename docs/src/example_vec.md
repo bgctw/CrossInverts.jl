@@ -71,7 +71,7 @@ Next, we define which individuals take part in the inversion scenario using
 function [`get_case_indiv_ids`](@ref)
 
 ```@example doc
-function CrossInverts.get_case_mixed_keys(::AbstractCrossInversionCase; scenario)
+function CrossInverts.get_case_mixed_keys(::DocuVecCase; scenario)
     (;
         fixed = (:sv₊p,),
         ranadd = (),
@@ -93,7 +93,7 @@ We provide priors with function
 of the individual or the scenario. 
 For the SymbolicArray parameters, we need to provide a Multivariate distribution.
 Here, we provide a product distribution of uncorrelated LogNormal distributions,
-which are specified by its mode and upper quantile using [`df_from_paramsModeUpperRows`](@ref).
+which are specified by its mode and upper quantile using [`fit_dists_mode_upper`](@ref).
 
 ```@example doc
 function CrossInverts.get_case_priors_dict(::DocuVecCase, indiv_id; scenario = NTuple{0, Symbol}())
@@ -105,7 +105,7 @@ function CrossInverts.get_case_priors_dict(::DocuVecCase, indiv_id; scenario = N
         (:sv₊x_1, LogNormal, 1.0, 2.0),
         (:sv₊x_2, LogNormal, 1.0, 2.0),
     ]
-    df_scalars = df_from_paramsModeUpperRows(paramsModeUpperRows)
+    df_scalars = fit_dists_mode_upper(paramsModeUpperRows)
     dd = Dict{Symbol, Distribution}(df_scalars.par .=> df_scalars.dist)
     dist_p0 = fit(LogNormal, @qp_m(1.0), @qp_uu(3.0))
     # dd[:sv₊p] = product_distribution(fill(dist_p0, 3))

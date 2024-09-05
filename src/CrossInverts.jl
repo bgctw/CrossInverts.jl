@@ -16,6 +16,7 @@ using Turing: Turing
 using MCMCChains: MCMCChains
 using Random, StableRNGs
 using PDMats: PDiagMat
+using LinearAlgebra: UniformScaling
 
 export AbstractCrossInversionCase
 export get_case_inverted_system
@@ -25,7 +26,7 @@ export get_case_priors_dict, get_case_priors_random_dict,
 export get_case_problemupdater
 export get_case_obs_uncertainty_dist_type
 export get_case_u0p
-export df_from_paramsModeUpperRows
+export fit_dists_mode_upper
 export simulate_indivdata
 include("indiv_data.jl")
 
@@ -45,6 +46,9 @@ export gen_sim_sols_probs, gen_sim_sols
 include("util_sim.jl")
 
 export gen_model_cross
+export temper_unc
+export count_finite_obs
+export compute_T_streams_obs, compute_T_streams
 include("util_sample.jl")
 
 export extract_group

@@ -46,7 +46,7 @@ function setup_inversion(inv_case::AbstractCrossInversionCase;
     tspans = map(indivdata) do indivdata_i
         (0, maximum(map(stream -> stream.t[end], indivdata_i)))
     end
-    problems = setup_indiv_problems(; inv_case, scenario, tspans, priors_dicts)
+    problems = setup_indiv_problems(; inv_case, scenario, tspans, priors_dicts, system_u0_p_default)
     #id = first(indiv_ids)
     #problem = first(problems)
     u0 = map(prob -> get_state_labeled(psets.popt, prob), problems)
