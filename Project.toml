@@ -24,9 +24,9 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [compat]
+CSV = "0.10"
 Chain = "0.5.0, 0.6"
 ComponentArrays = "0.13.10, 0.14, 0.15"
-CSV = "0.10"
 DataFrames = "1.6.1"
 DistributionFits = "0.3.8"
 Distributions = "0.25.106"
@@ -41,7 +41,7 @@ StableRNGs = "1.0.1"
 StaticArrays = "1.9"
 Tables = "1.11.1"
 Test = "1.6"
-Turing = "0.21.10, 0.30, 0.31, 0.32, 0.33"
+Turing = "0.21.10, 0.30, 0.31, 0.32, 0.33, 0.37"
 julia = "1.10"
 
 [workspace]
