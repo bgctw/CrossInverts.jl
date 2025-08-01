@@ -1,10 +1,3 @@
-tmpf = () -> begin
-    pop!(LOAD_PATH)
-    push!(LOAD_PATH, joinpath(pwd(), "test/"))
-    #push!(LOAD_PATH, expanduser("~/julia/devtools_$(VERSION.major).$(VERSION.minor)"))
-    push!(LOAD_PATH, expanduser("@dev_$(VERSION.major).$(VERSION.minor)"))
-end
-
 using Test, SafeTestsets
 const GROUP = get(ENV, "GROUP", "All") # defined in in CI.yml
 @show GROUP

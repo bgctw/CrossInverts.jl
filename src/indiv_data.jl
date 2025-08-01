@@ -210,7 +210,7 @@ function simulate_indivdata(; inv_case, scenario, unc_par,
 )
     # using and setup in test_util_mixed
     (; system, u0_default, p_default) = system_u0_p_default
-    defaults(system)
+    #defaults(system)
     #indiv_ids = get_case_indiv_ids(inv_case; scenario)
     res_indiv = get_indiv_parameters_from_priors(
         inv_case; scenario, system_u0_p_default, rng)

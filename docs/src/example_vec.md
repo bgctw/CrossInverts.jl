@@ -60,8 +60,9 @@ scenario = NTuple{0, Symbol}()
 (;system, u0_default, p_default) = get_case_inverted_system(inv_case; scenario)
 system
 ```
-Here, some parameters have default values, others, suche as sv₊i2, need to specified
-with with returned `ComponentVector` `p_default`.
+Here, some parameters have default values in the system.
+The others, such as sv₊i2, need to be specified
+with with the returned `ComponentVector` `p_default`.
 
 ### Optimized parameters and individuals
 
@@ -86,12 +87,12 @@ nothing # hide
 ### Priors, Observations, and Observation uncertainty
 
 We need to provide additional information to the inversion, such as observations,
-observation uncertainties, and prior distribution.
+observation uncertainties, and prior distributions.
 
 We provide priors with function 
 [`get_case_priors_dict`](@ref). For simplicity we return the same priors independent 
 of the individual or the scenario. 
-For the SymbolicArray parameters, we need to provide a Multivariate distribution.
+For the `SymbolicArray` parameters, we need to provide a Multivariate distribution.
 Here, we provide a product distribution of uncorrelated LogNormal distributions,
 which are specified by its mode and upper quantile using [`df_from_paramsModeUpperRows`](@ref).
 
@@ -154,14 +155,14 @@ end
 get_case_obs_uncertainty_dist_type(inv_case, :sv₊dec2; scenario)
 ```
 
-Finally, for each
-- each individual, 
+Finally, 
+- for each individual, 
 - for each stream, 
 we provide a vectors of
-- t: time
-- obs: observations (vectors for multivariate variables)
-- obs_unc: observation uncertainty parameters (can be matrices for multivariate variables)
-- obs_true (optionally): values of the true model to be rediscovered
+- `t`: time
+- `obs`: observations (vectors for multivariate variables)
+- `obs_unc`: observation uncertainty parameters (can be matrices for multivariate variables)
+- `obs_true` (optional): values of the true model to be rediscovered
   in synthetic experiments
 
 This is done by implementing function [`get_case_indivdata`](@ref).
@@ -278,7 +279,7 @@ get_case_indivdata(inv_case, :A; scenario)
 Often, when one parameter is adjusted, this has consequences for other non-optimized
 parameters. Function [`get_case_problemupdater`](@ref) allows to provide a `ParameterUpdater` 
 to take care.
-In this example, when optimizing parameter i, then parameter i2 is set to the
+In this example, when optimizing parameter `i`, then parameter `i2` is set to the
 same value.
 
 ```@example doc
@@ -303,15 +304,15 @@ at individual level as a `DataFrame`.
 keys(pop_info.sample0)
 ```
 
-A single sample is a ComponentVector with components
-- fixed: fixed effects
-- ranadd: mean additive random effects
-- ranmul: mean multiplicative random effects
-- ranadd_σ: uncertainty parameter of the additive random effects
-- ranmul_σ: uncertainty parameter of the multiplicative random effects
-- indiv: Component vector of each individual with individual effects
-- indiv_ranadd: Difference between individual and mean additive random effect
-- indiv_ranmul: Ratio betweenn individual and mean multiplicative random effect
+A single sample of parameters is a ComponentVector with components
+- `fixed`: fixed effects
+- `ranadd`: mean additive random effects
+- `ranmul`: mean multiplicative random effects
+- `ranadd_σ`: uncertainty parameter of the additive random effects
+- `ranmul_σ`: uncertainty parameter of the multiplicative random effects
+- `indiv`: Component vector of each individual with individual effects
+- `indiv_ranadd`: Difference between individual and mean additive random effect
+- `indiv_ranmul`: Ratio betweenn individual and mean multiplicative random effect
 
 A reminder of the effects:
 ```@example doc
@@ -329,7 +330,7 @@ pop_info.sample0[:indiv][:A]
 ## Forward simulation
 
 Although not necessary for the inversion, it can be helpful for 
-analysing to do a single forward simulation for all individuals 
+further analysis to do a single forward simulation for all individuals 
 for a given estimate of the effects.
 
 First, a function is created using [`gen_sim_sols_probs`](@ref) 
@@ -378,20 +379,21 @@ names(chn, :parameters)
 
 For each scalarized value of the effects there is a series of samples.
 - a group estimate for each fixed effect. For multivariate variables
-  the index is appended last, e.g. `Symbol("fixed[:sv₊p][1]")`.
-- a group mean additive random effect (none in the example case).
-- a group mean multiplicative random effect, e.g. `Symbol("ranmul[:sv₊τ]")`.
-- an uncertainty parameter of the ranmul effect, e.g. `Symbol("pranmul_σ[:sv₊τ]")`.
-- an individual effect for each individual, e.g. `Symbol("indiv[:sv₊i, 3]")` 
-  for the third individual.
+  the index is appended last, e.g. `Symbol("fixed[:sv₊p][1]")`,
+- a group mean additive random effect (none in the example case),
+- a group mean multiplicative random effect, e.g. `Symbol("ranmul[:sv₊τ]")`,
+- an uncertainty parameter of the ranadd effect (none in the example case),
+- an uncertainty parameter of the ranmul effect, e.g. `Symbol("pranmul_σ[:sv₊τ]")`,
+- an individual effect for each individual, e.g. `Symbol("indiv[:sv₊i, 3]")`
+  for the third individual,
 - the individual offset for the ranadd effect for each individual (none in the example case),
 - the individual multiplier for the ranmul effect for each individual,
   e.g. `Symbol("indiv_ranmul[:sv₊τ, 3]")`.
 
 ## Extracting individual effects 
 
-Each row of a multivariate chain can be extracted as a ComponentVector
-as described in [Extracting effects from sampled object].
+Each row of a multivariate chain can be extracted as a `ComponentVector`
+with components as as described in [Extracting effects from sampled object].
 
 ```@example doc
 chn2 = chn[:,vcat(pop_info.effect_pos[:indiv_ranmul][:B]...),:]

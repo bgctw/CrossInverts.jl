@@ -14,7 +14,7 @@ some parameters should be kept the same constant in all individuals (fixed param
 some are allowed to vary around a common mean across individuals (random parameters), 
 and others may be allowed to vary freely (individual parameters).
 
-This package helps with specifying priors and and dealing with population and individuals Further, it helps providing different specification by different scenarios.
+This package helps with specifying priors and and dealing with population and individuals. Further, it helps providing different specification by different scenarios.
 
 See the [walkthrough](https://bgctw.github.io/CrossInverts.jl/dev/example_vec/)
 in the documentation for example code.

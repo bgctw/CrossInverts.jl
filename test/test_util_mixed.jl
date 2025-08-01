@@ -57,6 +57,8 @@ end
     @test isfinite(p[:sv₊b1])  # from get_priors
     @test !(p[:sv₊b1] ≈ 0.01)  # from get_priors
     @test p[:sv₊i2] == 0.1    # from get_case_inverted_system
+    #TODO
+    #? @test p[:sv₊i2] == p[:sv₊i]    # from get_case_problemupdater
     u = get_state_labeled(pset, _problems[1])
     @test u[:sv₊x] == [2.0, 2.0] # grom getu0p
     p3 = get_par_labeled(pset, _problems[3]) # no information in u0p 
