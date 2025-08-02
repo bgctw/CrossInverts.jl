@@ -25,7 +25,7 @@ Turing = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 
 [compat]
 CSV = "0.10"
-Chain = "0.5.0, 0.6"
+Chain = "0.5.0, 0.6, 1"
 ComponentArrays = "0.15.8"
 DataFrames = "1.6.1"
 DistributionFits = "0.3.8"
